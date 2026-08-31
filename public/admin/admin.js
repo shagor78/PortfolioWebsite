@@ -151,9 +151,122 @@
   function toLines(str) {
     return String(str || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
   }
-  function toList(str) {
+    function toList(str) {
     return String(str || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
   }
+
+  /* ---------- Rich text editor (blog content) ----------
+     Lightweight contenteditable toolbar editor. Produces sanitised HTML
+     that the server re-sanitises before storage. */
+  function richTextField(label, initialHTML, opts) {
+    opts = opts || {};
+    var id = opts.id || ("rte-" + Math.random().toString(36).slice(2, 8));
+    var h = initialHTML == null ? "" : String(initialHTML);
+    if (!isRichHTML(h) && h.trim()) {
+      h = "<p>" + h.replace(/\n/g, "<br />") + "</p>";
+    }
+    return '<div class="field rich-field"><label>' + esc(label) + "</label>" +
+      '<div class="rte-toolbar" id="' + esc(id) + '-tb">' +
+        rteBtn(id, "paragraph", "P", "Paragraph") +
+        rteBtn(id, "formatBlock", "h1", "H1") +
+        rteBtn(id, "formatBlock", "h2", "H2") +
+        rteBtn(id, "formatBlock", "h3", "H3") +
+        '<span class="rte-sep"></span>' +
+        rteBtn(id, "bold", "B", "Bold") +
+        rteBtn(id, "italic", "I", "Italic") +
+        rteBtn(id, "underline", "U", "Underline") +
+        rteBtn(id, "strikeThrough", "S", "Strikethrough") +
+        '<span class="rte-sep"></span>' +
+        rteBtn(id, "insertUnorderedList", "• List", "Bullet list") +
+        rteBtn(id, "insertOrderedList", "1. List", "Numbered list") +
+        rteBtn(id, "formatBlock", "blockquote", "❝", "Blockquote") +
+        rteBtn(id, "createLink", "🔗", "Insert link") +
+        '<span class="rte-sep"></span>' +
+        '<button type="button" class="rte-btn" data-rte="justifyLeft" data-rteA="justifyLeft">⇤</button>' +
+        '<button type="button" class="rte-btn" data-rte="justifyCenter" data-rteA="justifyCenter">⏺</button>' +
+        '<button type="button" class="rte-btn" data-rte="justifyRight" data-rteA="justifyRight">⇥</button>' +
+        '<span class="rte-sep"></span>' +
+        rteBtn(id, "clearFormat" === "clearFormat" ? "removeFormat" : "removeFormat", "⌫ Clear", "Clear formatting") +
+      "</div>" +
+      '<div class="rte-editor" id="' + esc(id) + '" contenteditable="true" data-placeholder="' + esc(opts.placeholder || "Write your content here…") + '">' + h + "</div>" +
+      '<input type="hidden" id="' + esc(id) + '-out" />' +
+      (opts.hint ? '<p class="hint">' + esc(opts.hint) + "</p>" : "") +
+      "</div>";
+  }
+
+  function rteBtn(id, cmd, label, title) {
+    return '<button type="button" class="rte-btn" data-rte="' + esc(cmd) + '" data-rteA="' + esc(cmd) + '" title="' + esc(title || cmd) + '">' + esc(label) + "</button>";
+  }
+
+  function isRichHTML(s) {
+    return /<(p|br|ul|ol|h[123]|blockquote|div|li|strong|b|em|i|u|a|pre|code)[\s>]/i.test(s || "");
+  }
+
+  /* Bind toolbar buttons + editor. Returns { getHTML, setHTML } */
+  function bindRichEditor(root, outId) {
+    var editor = root.querySelector(".rte-editor");
+    var out = document.getElementById(outId);
+    out.value = editor.innerHTML;
+
+    function pull() {
+      var v = editor.innerHTML.replace(/^\s*<br\s*\/?>\s*/, "");
+      if (!v || v === "<br>") { out.value = ""; return; }
+      out.value = v;
+    }
+    function exec(cmd, arg) {
+      editor.focus();
+      try { document.execCommand(cmd, false, arg); } catch (e) {}
+      push();
+    }
+    function formatBlock(block) {
+      if (block === "paragraph") block = "p";
+      else if (block === "blockquote") block = "blockquote";
+      else return exec("formatBlock", "<" + block + ">");
+      return exec("formatBlock", "<" + block + ">");
+    }
+    editor.addEventListener("input", pull);
+    editor.addEventListener("keyup", pull);
+
+    root.querySelectorAll("[data-rte]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var cmd = btn.getAttribute("data-rte");
+        if (cmd === "formatBlock") {
+          var label = btn.textContent.trim().toLowerCase();
+          var block = label === "p" ? "p" : label === "h1" ? "h1" : label === "h2" ? "h2" : label === "h3" ? "h3" : label === "❝" ? "blockquote" : null;
+          formatBlock(block || "p");
+        } else if (cmd === "createLink") {
+          var url = prompt("Enter link URL (https://…):");
+          if (url) exec("createLink", url);
+        } else {
+          exec(cmd);
+        }
+      });
+    });
+
+    function push() { out.value = editor.innerHTML; }
+
+    return {
+      getHTML: function () {
+        var v = editor.innerHTML.replace(/^\s*<br\s*\/?>\s*/, "");
+        return (!v || v === "<br>") ? "" : v;
+      },
+      setHTML: function (h) {
+        editor.innerHTML = h || "";
+        out.value = editor.innerHTML;
+      }
+    };
+  }
+
+  /* Upload a single video to the media library — returns permanent URL */
+  function uploadVideo(file) {
+    if (!/^video\//.test(file.type)) return Promise.reject(new Error("Only video files (MP4, WEBM, MOV) are allowed."));
+    if (file.size > 256 * 1024 * 1024) return Promise.reject(new Error("Video too large (max 256MB)."));
+    return fileToDataURL(file).then(function (data) {
+      return api("/api/admin/media", "POST", { kind: "video", name: file.name, data: data });
+    }).then(function (arr) { return arr[0]; });
+  }
+
+
   function fmtDate(d) {
     if (!d) return "—";
     var dt = new Date(d);
@@ -403,6 +516,14 @@
           stat(s.experiences, "Experience") +
           stat(s.messages + (s.unreadMessages ? ' <small style="color:var(--red)">(' + s.unreadMessages + " new)</small>" : ""), "Messages") +
         "</div>" +
+        '<div class="stat-grid">' +
+          stat(s.views != null ? s.views : "—", "Total Views") +
+          stat(s.visitors != null ? s.visitors : "—", "Unique Visitors") +
+          stat(s.education != null ? s.education : (s.about && s.about.education ? s.about.education.length : "—"), "Education") +
+          stat(s.media != null ? s.media : "—", "Media Files") +
+          stat(s.images != null ? s.images : "—", "Images") +
+          stat(s.videos != null ? s.videos : "—", "Videos") +
+        "</div>" +
         '<div class="card"><h3>Quick Actions</h3><div class="form-actions">' +
           '<a class="btn-primary" style="text-decoration:none" href="#/blognew">＋ Create Post</a>' +
           '<a class="btn-ghost" style="text-decoration:none" href="#/projects">＋ New Project</a>' +
@@ -559,23 +680,42 @@
       var edu = (a.education || []).slice();
       function renderEdu() {
         $("#ab-edu").innerHTML = edu.map(function (e, i) {
-          return '<div class="editor-panel" style="margin-bottom:10px"><div class="grid-2">' +
-            '<input type="text" data-ed-d="' + i + '" value="' + esc(e.degree) + '" placeholder="Degree" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            '<input type="text" data-ed-i="' + i + '" value="' + esc(e.institution) + '" placeholder="Institution" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" /></div>' +
-            '<div style="display:flex;gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap">' +
-            '<select data-ed-s="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
-            ["Currently Pursuing", "Completed"].map(function (o) { return "<option" + (o === e.status ? " selected" : "") + ">" + o + "</option>"; }).join("") +
-            '</select>' +
-            '<select data-ed-rt="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
-              '<option value="">No result</option>' +
-              '<option value="cgpa"' + (e.resultType === "cgpa" ? " selected" : "") + '>CGPA</option>' +
-              '<option value="gpa"' + (e.resultType === "gpa" ? " selected" : "") + '>GPA</option>' +
-            '</select>' +
-            '<input type="text" data-ed-r="' + i + '" value="' + esc(e.result) + '" placeholder="Result e.g. 3.71" style="width:130px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            '<input type="text" data-ed-sc="' + i + '" value="' + esc(e.resultScale) + '" placeholder="Scale e.g. 4.00" style="width:120px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            '<label style="display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted);cursor:pointer">' +
-              '<input type="checkbox" data-ed-show="' + i + '"' + (e.showResult !== false ? " checked" : "") + ' /> Show on site</label>' +
-            '<button type="button" class="btn-danger" data-edel="' + i + '">✕ Remove</button></div></div>';
+          var years = e.years || "";
+          var loc = e.location || "";
+          return '<div class="editor-panel edu-panel" style="margin-bottom:12px">' +
+            '<div class="grid-2">' +
+              '<input type="text" data-ed-d="' + i + '" value="' + esc(e.degree || e.title || "") + '" placeholder="Degree / course title" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<input type="text" data-ed-i="' + i + '" value="' + esc(e.institution || "") + '" placeholder="Institution / university" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+            "</div>" +
+            '<div class="grid-2" style="margin-top:8px">' +
+              '<select data-ed-level="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
+                ["High School","Diploma","Associate","Bachelor","Master","PhD","Certificate","Other"].map(function (o) { return "<option" + (o === (e.level||"") ? " selected" : "") + ">" + o + "</option>"; }).join("") +
+              "</select>" +
+              '<select data-ed-st="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
+                ["Currently Studying","Completed"].map(function (o) { return "<option" + (o === (e.currentStudying ? "Currently Studying" : e.status) ? " selected" : "") + ">" + o + "</option>"; }).join("") +
+              "</select>" +
+            "</div>" +
+            '<div class="grid-2" style="margin-top:8px">' +
+              '<input type="text" data-ed-dep="' + i + '" value="' + esc(e.department || "") + '" placeholder="Department (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<input type="text" data-ed-sub="' + i + '" value="' + esc(e.subject || "") + '" placeholder="Subject / major (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+            "</div>" +
+            '<div class="grid-2" style="margin-top:8px">' +
+              '<input type="text" data-ed-y="' + i + '" value="' + esc(years) + '" placeholder="Years e.g. 2018 — 2022" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<input type="text" data-ed-loc="' + i + '" value="' + esc(loc) + '" placeholder="Location (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
+            "</div>" +
+            '<div style="display:flex;gap:10px;margin-top:8px;align-items:flex-end;flex-wrap:wrap">' +
+              '<input type="text" data-ed-rt="' + i + '" value="' + esc(e.resultType === "cgpa" ? "CGPA" : e.resultType === "gpa" ? "GPA" : "") + '" placeholder="Result type (CGPA / GPA)" style="width:150px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<input type="text" data-ed-r="' + i + '" value="' + esc(e.cgpa || e.gpa || e.result || "") + '" placeholder="Result e.g. 3.71" style="width:120px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<input type="text" data-ed-sc="' + i + '" value="' + esc(e.scale || e.resultScale || "") + '" placeholder="Scale e.g. 4.00" style="width:120px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
+              '<label style="display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted);cursor:pointer">' +
+                '<input type="checkbox" data-ed-show="' + i + '"' + (e.showResult !== false ? " checked" : "") + ' /> Show result on site</label>' +
+              '<button type="button" class="btn-danger" data-edel="' + i + '">✕ Remove</button>' +
+            "</div>" +
+            '<div style="margin-top:8px">' +
+              '<input type="text" data-ed-site="' + i + '" value="' + esc(e.website || "") + '" placeholder="Website (optional, e.g. https://university.edu)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px;width:100%" />' +
+            "</div>" +
+            '<textarea data-ed-desc="' + i + '" rows="2" placeholder="Short notes / description (optional)" style="width:100%;margin-top:8px;padding:10px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit">' + esc(e.description || "") + "</textarea>" +
+          "</div>";
         }).join("");
         $$("[data-edel]").forEach(function (b) {
           b.addEventListener("click", function () { edu.splice(+b.dataset.edel, 1); renderEdu(); });
@@ -583,7 +723,7 @@
       }
       renderEdu();
       $("#ab-addedu").addEventListener("click", function () {
-        edu.push({ degree: "", institution: "", status: "Currently Pursuing", resultType: "", result: "", resultScale: "", showResult: true });
+        edu.push({ level: "Bachelor", degree: "", institution: "", currentStudying: true, department: "", subject: "", years: "", location: "", resultType: "", result: "", gpa: "", cgpa: "", scale: "", showResult: true, website: "", description: "" });
         renderEdu();
       });
 
@@ -623,15 +763,32 @@
             return { title: $('[data-li-t="' + i + '"]').value, text: $('[data-li-x="' + i + '"]').value };
           });
           var e2 = edu.map(function (_, i) {
-            return {
+            var rt = $('[data-ed-rt="' + i + '"]').value.trim();
+            var resultVal = $('[data-ed-r="' + i + '"]').value.trim();
+            var scale = $('[data-ed-sc="' + i + '"]').value.trim();
+            var currentStudying = $('[data-ed-st="' + i + '"]').value === "Currently Studying";
+            var e = {
+              level: $('[data-ed-level="' + i + '"]').value,
               degree: $('[data-ed-d="' + i + '"]').value,
               institution: $('[data-ed-i="' + i + '"]').value,
-              status: $('[data-ed-s="' + i + '"]').value,
-              resultType: $('[data-ed-rt="' + i + '"]').value,
-              result: $('[data-ed-r="' + i + '"]').value.trim(),
-              resultScale: $('[data-ed-sc="' + i + '"]').value.trim(),
+              department: $('[data-ed-dep="' + i + '"]').value,
+              subject: $('[data-ed-sub="' + i + '"]').value,
+              years: $('[data-ed-y="' + i + '"]').value.trim(),
+              location: $('[data-ed-loc="' + i + '"]').value.trim(),
+              status: currentStudying ? "Currently Pursuing" : "Completed",
+              currentStudying: currentStudying,
+              description: $('[data-ed-desc="' + i + '"]').value.trim(),
+              website: $('[data-ed-site="' + i + '"]').value.trim(),
               showResult: $('[data-ed-show="' + i + '"]').checked
             };
+            if (rt) {
+              e.resultType = rt.toLowerCase().indexOf("cgpa") !== -1 ? "cgpa" : "gpa";
+              e[e.resultType] = resultVal;
+              e.result = resultVal;
+              e.scale = scale;
+              e.resultScale = scale;
+            }
+            return e;
           }).filter(function (x) { return x.degree || x.institution; });
           var c2 = certs.map(function (_, i) {
             return { name: $('[data-ct-n="' + i + '"]').value, code: $('[data-ct-c="' + i + '"]').value, type: $('[data-ct-t="' + i + '"]').value };
@@ -933,14 +1090,51 @@
         if (isOpen) return;
         panel.innerHTML =
           field("Project name", 'class="pj-title"', p.title) +
+          '<div class="grid-2">' +
+            field("Slug (URL — optional)", 'class="pj-slug" placeholder="auto-generated"', p.slug || "") +
+            '<div class="field"><label>Status</label><select class="pj-status">' +
+              '<option value="draft"' + (p.status !== "published" ? " selected" : "") + ">Draft (hidden)</option>" +
+              '<option value="published"' + (p.status === "published" ? " selected" : "") + ">Published</option></select></div>" +
+          "</div>" +
           textareaField("Short description", 'class="pj-desc" rows="2"', p.shortDesc) +
-          textareaField("My contribution", 'class="pj-contrib" rows="3"', p.contribution) +
+          '<div class="field"><label>Role / contribution</label><textarea class="pj-contrib" rows="3">' + esc(p.contribution || "") + "</textarea></div>" +
           '<div class="grid-2">' + field("Technologies (comma separated)", 'class="pj-tech"', (p.tech || []).join(", ")) +
-          '<div class="field"><label>Status</label><select class="pj-status">' +
-            '<option value="draft"' + (p.status !== "published" ? " selected" : "") + ">Draft (hidden)</option>" +
-            '<option value="published"' + (p.status === "published" ? " selected" : "") + ">Published</option></select></div></div>" +
+            '<div class="field"><label>Category (single keyword)</label><input type="text" class="pj-cat" value="' + esc(p.category || "") + '" placeholder="e.g. Machine Learning" /></div></div>' +
+          '<div class="field"><label>Links (label : URL — one per line)</label>' +
+            '<textarea class="pj-links" rows="2" placeholder="Demo : https://example.com&#10;GitHub : https://github.com/u/r">' + esc(lines(p.links || [])) + "</textarea>" +
+            "<p class='hint'>Add as many as you like. These power the buttons on the case-study page.</p></div>" +
           '<div class="grid-2">' + field("Live demo URL", 'class="pj-link" placeholder="https://…"', p.link) +
           field("GitHub URL", 'class="pj-github" placeholder="https://github.com/…"', p.github) + "</div>" +
+
+          '<div class="card" style="margin-top:18px"><h3>Demo Video &amp; Overlay</h3>' +
+            '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4 or /uploads/…" />' +
+            '<div class="form-actions" style="margin-top:10px">' +
+              '<label class="btn-mini" style="cursor:pointer">Upload video from computer<input type="file" accept="video/*" class="pj-vfile" hidden /></label>' +
+              '<button type="button" class="btn-mini pj-vclear">Remove video</button>' +
+              '<span id="pj-vstatus" class="hint" style="margin:0"></span></div>' +
+            '<p class="hint">Max 256MB — MP4, WEBM or MOV. Uploads to your media library.</p></div>' +
+            '<div class="pd-video-preview" id="pj-vprev">' + (p.videoUrl || p.video
+              ? '<video src="' + esc(p.videoUrl || p.video) + '" controls style="width:100%;max-height:240px;border-radius:10px;background:#000"></video>'
+              : "") + "</div>" +
+            '<div class="grid-2">' +
+              field("Video title", 'class="pj-vtitle"', p.videoTitle || "") +
+              field("Caption (short line above title)", 'class="pj-vcap"', p.videoCaption || "") +
+            "</div>" +
+            textareaField("Video description / subtitle (optional)", 'class="pj-vdesc" rows="2"', p.videoDesc || p.videoSubtitle || "") +
+            field("Overlay tags (comma separated — optional)", 'class="pj-vtags"', (p.videoTags || []).join(", ")) +
+            '<div class="field"><label>Poster image URL (optional)</label><input type="text" class="pj-vposter" value="' + esc(p.videoPoster || "") + '" placeholder="https://…/poster.jpg" />' +
+            '<div class="form-actions" style="margin-top:8px"><button type="button" class="btn-mini pj-vposterpick">Choose from Library</button></div></div>' +
+          "</div>" +
+
+          '<div class="card" style="margin-top:18px"><h3>Case Study Content</h3>' +
+            textareaField("Key Features (one per line)", 'class="pj-features" rows="4" placeholder="Real-time collaboration&#10;Offline-first sync&#10;Push notifications"', (p.features || []).join("\n")) +
+            textareaField("Challenges (one per line — optional)", 'class="pj-challenges" rows="3"', (p.challenges || []).join("\n")) +
+            textareaField("Solutions (one per line — optional)", 'class="pj-solutions" rows="3"', (p.solutions || []).join("\n")) +
+            '<div class="grid-2">' +
+              '<label style="display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted);cursor:pointer"><input type="checkbox" class="pj-feat" ' + (p.featured ? " checked" : "") + " /> Featured (highlight on site)</label>" +
+              '<label style="display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted);cursor:pointer"><input type="checkbox" class="pj-hidecover" ' + (p.hideCover ? " checked" : "") + " /> Hide cover on case-study page</label>" +
+            "</div>" +
+          "</div>" +
           '<div class="field"><label>Images (multiple supported)</label><div class="img-thumbs pj-imgs">' + thumbsHTML(p.images) + "</div>" +
           '<div class="form-actions"><button type="button" class="btn-mini pj-addimg">Add Images</button></div>' +
           '<p class="hint">First image is used as the cover.</p></div>' +
@@ -954,6 +1148,35 @@
         $(".pj-addimg", panel).addEventListener("click", function () {
           openPicker(true, function (urls) { imgs = imgs.concat(urls); $(".pj-imgs", panel).innerHTML = thumbsHTML(imgs); });
         });
+
+        var vstatus = $("#pj-vstatus", panel);
+        var vprev = $("#pj-vprev", panel);
+        var vurlInput = $(".pj-vurl", panel);
+        function showVid() {
+          var v = $(".pj-vurl", panel).value.trim();
+          vprev.innerHTML = v
+            ? '<video src="' + esc(v) + '" controls style="width:100%;max-height:240px;border-radius:10px;background:#000"></video>'
+            : "";
+        }
+        $(".pj-vfile", panel).addEventListener("change", function () {
+          var file = this.files[0];
+          this.value = "";
+          if (!file) return;
+          vstatus.textContent = "Uploading video…";
+          uploadVideo(file).then(function (item) {
+            $(".pj-vurl", panel).value = item.url;
+            vstatus.textContent = "✓ Uploaded " + item.name;
+            showVid();
+          }).catch(function (err) { vstatus.textContent = "✕ " + (err.message || "Upload failed"); });
+        });
+        $(".pj-vclear", panel).addEventListener("click", function () {
+          $(".pj-vurl", panel).value = ""; vstatus.textContent = ""; showVid();
+        });
+        $(".pj-vurl", panel).addEventListener("input", showVid);
+        $(".pj-vposterpick", panel).addEventListener("click", function () {
+          openPicker(false, function (u) { $(".pj-vposter", panel).value = u; });
+        });
+
         $(".pj-cancel", panel).addEventListener("click", function () { panel.classList.add("hidden"); panel.innerHTML = ""; });
         $(".pj-save", panel).addEventListener("click", function () {
           var btn = this;
@@ -961,16 +1184,31 @@
           guard(btn, function () {
             return api("/api/admin/projects/" + p.id, "PUT", {
               title: $(".pj-title", panel).value,
+              slug: $(".pj-slug", panel).value.trim() || undefined,
               shortDesc: $(".pj-desc", panel).value,
               contribution: $(".pj-contrib", panel).value,
               tech: toList($(".pj-tech", panel).value),
+              category: $(".pj-cat", panel).value.trim(),
               status: $(".pj-status", panel).value,
+              links: toLines($(".pj-links", panel).value),
               link: $(".pj-link", panel).value,
               github: $(".pj-github", panel).value,
+              videoUrl: $(".pj-vurl", panel).value.trim() || "",
+              videoTitle: $(".pj-vtitle", panel).value.trim(),
+              videoCaption: $(".pj-vcap", panel).value.trim(),
+              videoDesc: $(".pj-vdesc", panel).value.trim(),
+              videoTags: toList($(".pj-vtags", panel).value),
+              videoPoster: $(".pj-vposter", panel).value.trim(),
+              features: toLines($(".pj-features", panel).value),
+              challenges: toLines($(".pj-challenges", panel).value),
+              solutions: toLines($(".pj-solutions", panel).value),
+              featured: $(".pj-feat", panel).checked,
+              hideCover: $(".pj-hidecover", panel).checked,
               images: imgs
             }).then(function () { toast("✓ Saved successfully"); reload(); });
           });
         });
+        showVid();
         panel.classList.remove("hidden");
         panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
@@ -1004,7 +1242,8 @@
         '<div class="ed-col-main">' +
           '<div class="card"><h3>Post Content</h3>' +
             '<div class="field"><label>Title *</label><input type="text" class="big-title-input pe-title" value="' + esc(p.title) + '" placeholder="Give this post a headline…" /></div>' +
-            textareaField("Caption / content *", 'class="pe-text" rows="9" placeholder="What do you want to share?"', p.text) +
+            richTextField("Caption / content *", p.text, { id: "pe-rte", placeholder: "Write your post here… Use the toolbar to style it.", hint: "Supports rich formatting — headings, lists, quotes, links, bold & italic." }) +
+            '<input type="hidden" id="pe-text" />' +
             '<div class="form-error" id="pe-error"></div>' +
           "</div>" +
           '<div class="card"><h3>Featured Image</h3>' +
@@ -1050,7 +1289,7 @@
     function collect() {
       return {
         title: $(".pe-title", content).value.trim(),
-        text: $(".pe-text", content).value.trim(),
+        text: ($(".pe-text", content) || $("#pe-text", content)).value.trim(),
         category: $(".pe-cat", content).value,
         tags: toList($(".pe-tags", content).value),
         location: $(".pe-loc", content).value.trim(),
@@ -1133,6 +1372,13 @@
 
     renderFeat();
     renderGallery();
+
+    /* bind rich text editor; sync hidden #pe-text input which collect() reads */
+    var peText = $("#pe-text", content);
+    var peRte = $("#pe-rte", content);
+    if (peText && peRte) {
+      var rte = bindRichEditor(content, "pe-text");
+    }
 
     /* --- save actions --- */
     function persist(statusOverride, doneMsg) {
@@ -1364,16 +1610,47 @@
 
   /* ---------- MEDIA MANAGER ---------- */
   register("media", "Media Library", function (content) {
+    var tab = "image";
     content.innerHTML =
-      '<label class="upload-zone" id="mm-zone"><input type="file" id="mm-file" accept="image/*" multiple hidden />＋ Click or drop images here to upload <small style="display:block;font-weight:400;margin-top:4px">JPG · JPEG · PNG · WEBP · GIF · SVG — max 10MB each</small></label>' +
+      '<div class="mm-tabs">' +
+        '<button type="button" class="mm-tab active" data-tab="image">Images</button>' +
+        '<button type="button" class="mm-tab" data-tab="video">Videos</button>' +
+      "</div>" +
+      '<label class="upload-zone" id="mm-zone">' +
+        '<input type="file" id="mm-file" hidden />' +
+        '<span class="uz-main">＋ Drag &amp; drop or click to upload</span>' +
+        '<span class="uz-sub" id="mm-sub">JPG · JPEG · PNG · WEBP · GIF · SVG — max 10MB each</span>' +
+      "</label>" +
       '<div class="media-grid" id="mm-grid"></div>';
+
+    function setTab(t) {
+      tab = t;
+      $$(".mm-tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === t); });
+      $("#mm-file").setAttribute("accept", t === "image" ? "image/*" : "video/*");
+      $("#mm-sub").textContent = t === "image"
+        ? "JPG · JPEG · PNG · WEBP · GIF · SVG — max 10MB each"
+        : "MP4 · WEBM · MOV — max 256MB each";
+      loadMediaGrid();
+    }
+    $$(".mm-tab").forEach(function (b) {
+      b.addEventListener("click", function () { setTab(b.dataset.tab); });
+    });
+
     var zone = $("#mm-zone");
+    function handleFiles(files) {
+      var arr = Array.prototype.slice.call(files);
+      if (!arr.length) return Promise.resolve();
+      if (tab === "video") {
+        if (arr.length > 1) return Promise.reject(new Error("Upload one video at a time."));
+        return uploadVideo(arr[0]).then(function () { toast("✓ Video uploaded successfully"); }).then(loadMediaGrid, function (err) { toast(err.message, true); });
+      }
+      return uploadFiles(arr).then(loadMediaGrid, function (err) { toast(err.message, true); });
+    }
     $("#mm-file").addEventListener("change", function () {
       var input = this;
       if (!input.files.length) return;
       guard(zone, function () {
-        return uploadFiles(input.files).then(loadMediaGrid, function (err) { toast(err.message, true); })
-          .then(function () { input.value = ""; });
+        return handleFiles(input.files).then(function () { input.value = ""; });
       }, "Uploading…");
     });
     ["dragover", "dragleave", "drop"].forEach(function (ev) {
@@ -1381,9 +1658,7 @@
         e.preventDefault();
         zone.classList.toggle("dragover", ev === "dragover");
         if (ev === "drop") {
-          guard(zone, function () {
-            return uploadFiles(e.dataTransfer.files).then(loadMediaGrid, function (err) { toast(err.message, true); });
-          }, "Uploading…");
+          guard(zone, function () { return handleFiles(e.dataTransfer.files); }, "Uploading…");
         }
       });
     });
@@ -1393,39 +1668,52 @@
     function loadMediaGrid() {
       api("/api/admin/media").then(function (list) {
         var grid = $("#mm-grid");
-        grid.innerHTML = list.length ? "" : '<p class="empty-note" style="grid-column:1/-1">No images uploaded yet.</p>';
-        list.forEach(function (m) {
+        var items = list.filter(function (m) { return (m.type || "image") === tab; });
+        grid.innerHTML = items.length ? "" : '<p class="empty-note" style="grid-column:1/-1">No ' + tab + "s uploaded yet.</p>";
+        items.forEach(function (m) {
           var tile = document.createElement("div");
-          tile.className = "media-tile";
-          tile.innerHTML = '<img src="' + esc(m.url) + '" alt="' + esc(m.name) + '" title="' + esc(m.name) + '" />' +
-            '<button type="button" class="repl" data-replace="' + esc(m.name) + '" title="Replace this image (same URL everywhere)">⇄</button>' +
-            '<button type="button" class="del" data-del="' + esc(m.name) + '" title="Delete image">✕</button>';
-          $("img", tile).addEventListener("click", function () { window.open(m.url, "_blank"); });
-          $("[data-del]", tile).addEventListener("click", function () {
-            if (!confirm("Delete this image? Pages using it will lose it.")) return;
+          tile.className = "media-tile media-" + (tab === "video" ? "video" : "image");
+          if (tab === "video") {
+            tile.innerHTML =
+              '<div class="mm-video-thumb"><video src="' + esc(m.url) + '" preload="metadata" muted></video><span class="mm-vplay">▶</span></div>' +
+              '<button type="button" class="del" data-del="' + esc(m.name) + '" title="Delete video">✕</button>' +
+              '<div class="mm-name">' + esc(m.name) + (m.mime ? ' <span class="mm-mime">' + esc(m.mime.replace("video/", "")) + "</span>" : "") + "</div>";
+            tile.addEventListener("click", function () { window.open(m.url, "_blank"); });
+          } else {
+            tile.innerHTML = '<img src="' + esc(m.url) + '" alt="' + esc(m.name) + '" title="' + esc(m.name) + '" />' +
+              '<button type="button" class="repl" data-replace="' + esc(m.name) + '" title="Replace this image (same URL everywhere)">⇄</button>' +
+              '<button type="button" class="del" data-del="' + esc(m.name) + '" title="Delete image">✕</button>';
+            $("img", tile).addEventListener("click", function () { window.open(m.url, "_blank"); });
+          }
+          $("[data-del]", tile).addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (!confirm("Delete this " + tab + "? Pages using it will lose it.")) return;
             var btn = this;
             guard(btn, function () {
               return api("/api/admin/media/" + encodeURIComponent(m.name), "DELETE")
                 .then(function () { toast("✓ Deleted successfully"); loadMediaGrid(); });
             }, "…");
           });
-          $("[data-replace]", tile).addEventListener("click", function () {
-            var inp = document.createElement("input");
-            inp.type = "file"; inp.accept = m.name.toLowerCase().endsWith(".jpg") ? "image/jpeg" : "image/" + m.name.split(".").pop();
-            inp.addEventListener("change", function () {
-              var file = inp.files[0];
-              if (!file) return;
-              guard(this, function () {
-                return fileToDataURL(file).then(function (data) {
-                  return api("/api/admin/media/replace", "PUT", { name: m.name, data: data });
-                }).then(function () {
-                  toast("✓ Image replaced — every page using it now shows the new version");
-                  loadMediaGrid();
-                });
-              }, "Replacing…");
+          if (tab === "image") {
+            $("[data-replace]", tile).addEventListener("click", function (e) {
+              e.stopPropagation();
+              var inp = document.createElement("input");
+              inp.type = "file"; inp.accept = "image/" + (m.name.indexOf(".") >= 0 ? m.name.split(".").pop() : "");
+              inp.addEventListener("change", function () {
+                var file = inp.files[0];
+                if (!file) return;
+                guard(this, function () {
+                  return fileToDataURL(file).then(function (data) {
+                    return api("/api/admin/media/replace", "PUT", { name: m.name, data: data });
+                  }).then(function () {
+                    toast("✓ Image replaced — every page using it now shows the new version");
+                    loadMediaGrid();
+                  });
+                }, "Replacing…");
+              });
+              inp.click();
             });
-            inp.click();
-          });
+          }
           grid.appendChild(tile);
         });
       }, function (err) { toast(err.message, true); });

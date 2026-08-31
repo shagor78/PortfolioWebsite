@@ -32,11 +32,22 @@ const MIME = {
   ".webp": "image/webp",
   ".pdf": "application/pdf",
   ".ico": "image/x-icon",
-  ".woff2": "font/woff2"
+  ".woff2": "font/woff2",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime"
 };
 
 const IMAGE_EXT = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
-const MAX_BODY = 15 * 1024 * 1024; // 15 MB
+const VIDEO_EXT = [".mp4", ".webm", ".mov"];
+const VIDEO_MIME = {
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime"
+};
+/* Allow large bodies for video uploads (base64 inflates ~1.37x). */
+const MAX_BODY = 400 * 1024 * 1024; // 400 MB request cap (accommodates ~256MB videos)
+const MAX_VIDEO = 256 * 1024 * 1024; // 256 MB actual video file cap
 
 /* ---------------- Database ---------------- */
 
@@ -230,7 +241,17 @@ function seedDB() {
         education: true, certifications: true, skills: true, blog: true, contact: true
       },
       order: ["hero", "experience", "projects", "about", "education", "certifications", "skills", "blog", "contact"]
-    }
+    },
+    views: {
+      total: 0,
+      today: 0,
+      week: 0,
+      month: 0,
+      lastDate: now.slice(0, 10),
+      lastWeek: now.slice(0, 10),
+      lastMonth: now.slice(0, 10)
+    },
+    visitors: []
   };
 }
 
@@ -259,10 +280,128 @@ function cleanImages(arr) {
     .slice(0, 24);
 }
 
+/* ---------------- Rich text (blog) sanitizer ----------------
+   Allows only safe, whitelisted HTML that the public editor produces.
+   Strips scripts, event handlers, javascript: URLs, inline styles except
+   a controlled text-align, and unknown tags — protecting against XSS.   */
+
+const SAFE_TAGS = new Set([
+  "p", "br", "b", "strong", "i", "em", "u", "s", "strike", "del", "a", "h1", "h2", "h3",
+  "ul", "ol", "li", "blockquote", "code", "pre", "span", "div"
+]);
+const BLOCK_LEVEL = new Set(["p", "pre", "blockquote", "ul", "ol", "h1", "h2", "h3", "div"]);
+
+function sanitizeHTML(html) {
+  if (html == null) return "";
+  let src = String(html);
+  /* strip everything that is not tag/text — prevents stray attributes being parsed */
+  /* First remove script/style blocks entirely */
+  src = src.replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, "");
+  src = src.replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, "");
+  const out = [];
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
+  const textRe = /[^<>]+/g;
+  let pos = 0;
+  let m;
+  while ((m = textRe.exec(src))) {
+    if (m.index > pos) stripTag(src.slice(pos, m.index), out);
+    out.push(escapeText(m[0]));
+    pos = m.index + m[0].length;
+  }
+  if (pos < src.length) stripTag(src.slice(pos), out);
+  return out.join("");
+}
+
+function stripTag(raw, out) {
+  for (const m of raw.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g)) {
+    const tag = m[1].toLowerCase();
+    const isClose = m[0].startsWith("</");
+    if (!SAFE_TAGS.has(tag)) continue; // drop unknown tags
+    if (isClose) { out.push("</" + tag + ">"); continue; }
+    const attrs = parseAttrs(m[2] || "");
+    /* only allow href on <a>, and only safe http(s)/mailto/# links */
+    if (tag === "a") {
+      const href = (attrs.href || "").trim();
+      const safeHref = /^(https?:)?\/\/|^mailto:|^#|^\/|^\.?\//i.test(href) && !/javascript:/i.test(href) ? href : null;
+      if (!safeHref) { out.push("<a>"); continue; }
+      out.push('<a href="' + escapeAttr(safeHref) + '"' + (attrs.target ? ' target="' + escapeAttr(attrs.target) + '"' : "") + ' rel="noopener nofollow" target="_blank">');
+      continue;
+    }
+    if (tag === "span" || tag === "div" || tag === "p") {
+      /* allow text-align on block/span via style */
+      const align = /text-align\s*:\s*(left|center|right|justify)/i.exec(attrs.style || "") || "";
+      const styleAttr = align[1] ? ' style="text-align:' + align[1] + '"' : "";
+      out.push("<" + tag + styleAttr + ">");
+      continue;
+    }
+    out.push("<" + tag + ">");
+  }
+}
+
+function parseAttrs(str) {
+  const attrs = {};
+  const re = /([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;
+  let m;
+  while ((m = re.exec(str))) attrs[m[1].toLowerCase()] = m[2] != null ? m[2] : m[3] != null ? m[3] : m[4];
+  return attrs;
+}
+
+function escapeText(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escapeAttr(s) {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* Detect whether a stored post body looks like rich HTML (vs legacy plain text). */
+function looksLikeHTML(s) {
+  return /<(p|br|ul|ol|h[123]|blockquote|div|li|strong|b|em|i|a)[\s>]/i.test(s || "");
+}
+
 function logActivity(text) {
   db.activity = db.activity || [];
   db.activity.unshift({ id: uid(), text: String(text).slice(0, 200), date: new Date().toISOString() });
   if (db.activity.length > 40) db.activity.length = 40;
+}
+
+/* ---------------- View / visitor counter ----------------
+   A "view" is recorded once per visitor per rolling hour window. The client
+   generates a stable anonymous visitor id (kept in localStorage) and sends it
+   along with the server IP as a fallback, so simple refresh spam does not
+   inflate the count. Daily/weekly/monthly aggregates roll with the calendar. */
+
+function rollViewCounters(nowIso) {
+  const today = nowIso.slice(0, 10);
+  const month = nowIso.slice(0, 7);
+  const week = mondayKey(nowIso);
+  const v = db.views;
+  if (v.lastDate !== today) { v.today = 0; v.lastDate = today; }
+  if (v.lastMonth !== month) { v.month = 0; v.lastMonth = month; }
+  if (v.lastWeek !== week) { v.week = 0; v.lastWeek = week; }
+}
+
+function recordView(visitorId, ip) {
+  db.views = db.views || {};
+  db.visitors = Array.isArray(db.visitors) ? db.visitors : [];
+  const now = new Date();
+  const nowIso = now.toISOString();
+  rollViewCounters(nowIso);
+
+  const hourAgo = now.getTime() - 60 * 60 * 1000;
+  const key = String(visitorId || "").slice(0, 64) || ("ip:" + String(ip || ""));
+  /* find an existing recent record for this visitor + ip combo */
+  let rec = db.visitors.find((x) => x.k === key);
+  if (rec && rec.t > hourAgo) return false; // duplicate within the hour → not a new view
+  if (rec) rec.t = now.getTime();
+  else {
+    db.visitors.push({ k: key, t: now.getTime() });
+    if (db.visitors.length > 4000) db.visitors = db.visitors.slice(-4000);
+  }
+  db.views.total = (db.views.total || 0) + 1;
+  db.views.today = (db.views.today || 0) + 1;
+  db.views.week = (db.views.week || 0) + 1;
+  db.views.month = (db.views.month || 0) + 1;
+  return true;
 }
 
 function init() {
@@ -297,13 +436,42 @@ function init() {
   if (!Array.isArray(db.blogCategories)) { db.blogCategories = ["Life", "Learning", "Technology", "Career", "Travel"]; migrated = true; }
   if (!Array.isArray(db.activity)) { db.activity = []; migrated = true; }
   if (db.resume === undefined) { db.resume = null; migrated = true; }
+
+  /* ---- views / visitor counter migration ---- */
+  const todayIso = nowIso.slice(0, 10);
+  if (!db.views) {
+    db.views = {
+      total: 0, today: 0, week: 0, month: 0,
+      lastDate: todayIso, lastWeek: todayIso, lastMonth: todayIso
+    };
+    migrated = true;
+  }
+  if (!Array.isArray(db.visitors)) { db.visitors = []; migrated = true; }
+  /* roll over daily/weekly/monthly counters if the day/week/month has changed */
+  if (db.views.lastDate !== todayIso) { db.views.today = 0; db.views.lastDate = todayIso; migrated = true; }
+  const weekKey = mondayKey(nowIso);
+  if (db.views.lastWeek !== weekKey) { db.views.week = 0; db.views.lastWeek = weekKey; migrated = true; }
+  const monthKey = nowIso.slice(0, 7);
+  if (db.views.lastMonth !== monthKey) { db.views.month = 0; db.views.lastMonth = monthKey; migrated = true; }
+
   ((db.about && db.about.education) || []).forEach((ed) => {
     if (ed.resultType === undefined) { ed.resultType = ""; migrated = true; }
     if (ed.result === undefined) { ed.result = ""; migrated = true; }
     if (ed.resultScale === undefined) { ed.resultScale = ""; migrated = true; }
     if (ed.showResult === undefined) { ed.showResult = true; migrated = true; }
   });
+  (db.projects || []).forEach((p) => {
+    if (p.links === undefined) { p.links = {}; migrated = true; }
+  });
   if (migrated || !fs.existsSync(DB_PATH)) saveDB();
+}
+
+/* returns the Monday (start-of-week) date string for a given ISO date */
+function mondayKey(iso) {
+  const d = new Date(iso);
+  const day = (d.getDay() + 6) % 7; // Monday = 0
+  d.setDate(d.getDate() - day);
+  return d.toISOString().slice(0, 10);
 }
 
 /* ---------------- Auth ---------------- */
@@ -396,28 +564,37 @@ function publicContent() {
         category: p.category, tags: p.tags || [], images: p.images || [],
         likes: p.likes || 0, comments: p.comments || []
       })),
-    sections: db.sections
+    sections: db.sections,
+    views: db.views || { total: 0, today: 0, week: 0, month: 0 }
   };
 }
 
 /* ---------------- Media ---------------- */
 
 function listMedia() {
+  const items = [];
   try {
-    return fs.readdirSync(UPLOAD_DIR)
-      .filter((f) => IMAGE_EXT.includes(path.extname(f).toLowerCase()))
-      .map((f) => {
-        const st = fs.statSync(path.join(UPLOAD_DIR, f));
-        return { name: f, url: "/uploads/" + encodeURIComponent(f), size: st.size, mtime: st.mtimeMs };
-      })
-      .sort((a, b) => b.mtime - a.mtime);
-  } catch (e) {
-    return [];
-  }
+    for (const f of fs.readdirSync(UPLOAD_DIR)) {
+      const ext = path.extname(f).toLowerCase();
+      const isImage = IMAGE_EXT.includes(ext);
+      const isVideo = VIDEO_EXT.includes(ext);
+      if (!isImage && !isVideo) continue;
+      const st = fs.statSync(path.join(UPLOAD_DIR, f));
+      items.push({
+        name: f,
+        url: "/uploads/" + encodeURIComponent(f),
+        size: st.size,
+        mtime: st.mtimeMs,
+        type: isImage ? "image" : "video",
+        mime: isImage ? (MIME[ext] || "application/octet-stream") : (VIDEO_MIME[ext] || "video/mp4")
+      });
+    }
+  } catch (e) { /* ignore */ }
+  return items.sort((a, b) => b.mtime - a.mtime);
 }
 
 function saveUpload(dataField, originalName) {
-  const match = /^data:(image\/[a-zA-Z+.-]+);base64,(.+)$/.exec(dataField || "");
+  const match = /^data:(image\/[a-zA-Z0-9+.\-]+);base64,(.+)$/.exec(dataField || "");
   if (!match) throw new Error("Invalid image data (expected base64 data URL)");
   const mime = match[1];
   const extMap = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg" };
@@ -426,6 +603,29 @@ function saveUpload(dataField, originalName) {
   const buf = Buffer.from(match[2], "base64");
   if (buf.length > 10 * 1024 * 1024) throw new Error("Image too large (max 10MB)");
   const safeBase = (originalName || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9-_ ]/g, "").trim().slice(0, 40) || "image";
+  const name = safeBase.replace(/\s+/g, "-") + "-" + Date.now().toString(36) + ext;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+  return { name, url: "/uploads/" + encodeURIComponent(name) };
+}
+
+/* Video upload via base64 data URL. Validates MIME + magic bytes + size. */
+function saveVideoUpload(dataField, originalName) {
+  const mimeMatch = /^data:(video\/[a-zA-Z0-9+.\-]+);base64,(.+)$/.exec(dataField || "");
+  if (!mimeMatch) throw new Error("Invalid video data (expected base64 data URL)");
+  const mime = mimeMatch[1].toLowerCase();
+  const extMap = { "video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov" };
+  const ext = extMap[mime];
+  if (!ext) throw new Error("Unsupported video type. Use MP4, WebM or MOV.");
+  const buf = Buffer.from(mimeMatch[2], "base64");
+  if (buf.length > MAX_VIDEO) throw new Error("Video too large (max 256MB).");
+  /* magic-byte validation to reject disguised files */
+  const magics = { ".mp4": buf.slice(4, 8).toString("latin1") === "ftyp", ".mov": buf.slice(4, 8).toString("latin1") === "ftyp" }; /* webm EBML magic 1A45DFA3 */
+  if (ext === ".mp4" && buf.length > 8 && !magics[".mp4"]) throw new Error("That file is not a valid MP4 video.");
+  if (ext === ".mov" && buf.length > 8 && !magics[".mov"]) throw new Error("That file is not a valid MOV video.");
+  if (ext === ".webm" && buf.length > 4 && !(buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3)) {
+    throw new Error("That file is not a valid WebM video.");
+  }
+  const safeBase = (originalName || "video").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9-_ ]/g, "").trim().slice(0, 40) || "video";
   const name = safeBase.replace(/\s+/g, "-") + "-" + Date.now().toString(36) + ext;
   fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
   return { name, url: "/uploads/" + encodeURIComponent(name) };
@@ -441,6 +641,17 @@ async function handleAPI(req, res, pathname) {
 
   if (method === "GET" && pathname === "/api/content") {
     return sendJSON(res, 200, publicContent());
+  }
+
+  /* record a portfolio view — deduplicated per visitor per hour */
+  if (method === "POST" && pathname === "/api/view") {
+    const b = await readBody(req);
+    const ip = req.socket.remoteAddress || "";
+    const newView = recordView(b.visitorId, ip);
+    const v = db.views;
+    sendJSON(res, 200, { ok: true, newView, views: { total: v.total, today: v.today, week: v.week, month: v.month } });
+    if (newView) saveDB();
+    return;
   }
 
   if (method === "POST" && pathname === "/api/contact") {
@@ -515,7 +726,13 @@ async function handleAPI(req, res, pathname) {
       skills: db.skills.reduce((n, s) => n + s.items.length, 0),
       messages: db.messages.length,
       unreadMessages: db.messages.filter((x) => !x.read).length,
-      drafts: db.posts.filter((p) => p.status === "draft").length
+      drafts: db.posts.filter((p) => p.status === "draft").length,
+      education: (db.about && db.about.education ? db.about.education.length : 0) + (db.education ? db.education.length : 0),
+      media: listMedia().length,
+      images: listMedia().filter((m) => m.type === "image").length,
+      videos: listMedia().filter((m) => m.type === "video").length,
+      views: db.views || { total: 0, today: 0, week: 0, month: 0 },
+      visitors: Array.isArray(db.visitors) ? db.visitors.length : 0
     });
   }
 
@@ -588,6 +805,7 @@ async function handleAPI(req, res, pathname) {
       const nowIso = new Date().toISOString();
       if (col === "posts") {
         item.images = cleanImages(item.images);
+        if (item.text !== undefined) item.text = sanitizeHTML(item.text);
         item.status = item.status === "published" ? "published" : "draft";
         if (item.status === "published" && !String(item.title || "").trim()) {
           return sendJSON(res, 400, { error: "A title is required to publish." });
@@ -640,6 +858,7 @@ async function handleAPI(req, res, pathname) {
 
         if (col === "posts") {
           if (patch.images !== undefined) patch.images = cleanImages(patch.images);
+          if (patch.text !== undefined) patch.text = sanitizeHTML(patch.text);
           const wasPublished = current.status === "published";
           const wantsPublish = patch.status === "published";
           const titleAfter = String(patch.title !== undefined ? patch.title : current.title || "").trim();
@@ -780,6 +999,12 @@ async function handleAPI(req, res, pathname) {
       saveDB();
       return sendJSON(res, 200, saved);
     }
+    if (b.kind === "video") {
+      const saved = saveVideoUpload(b.data, b.name);
+      logActivity("Uploaded video: " + saved.name);
+      saveDB();
+      return sendJSON(res, 200, [saved]);
+    }
     const saved = saveUpload(b.data, b.name);
     logActivity("Uploaded image: " + saved.name);
     saveDB();
@@ -791,7 +1016,7 @@ async function handleAPI(req, res, pathname) {
     const targetName = path.basename(String(b.name || ""));
     const targetPath = path.join(UPLOAD_DIR, targetName);
     if (!fs.existsSync(targetPath)) return sendJSON(res, 404, { error: "Original image not found." });
-    const match = /^data:(image\/[a-zA-Z+.-]+);base64,(.+)$/.exec(b.data || "");
+    const match = /^data:(image\/[a-zA-Z0-9+.\-]+);base64,(.+)$/.exec(b.data || "");
     if (!match) return sendJSON(res, 400, { error: "Invalid image data." });
     const extMap = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg" };
     const newExt = extMap[match[1]];

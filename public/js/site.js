@@ -19,6 +19,39 @@
     return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   }
 
+  /* Detect whether post content is rich HTML (produced by the admin editor) or legacy plain text. */
+  function isRichText(s) {
+    return /<(p|br|ul|ol|h[123]|blockquote|div|li|strong|b|em|i|u|a|pre|code)[\s>]/i.test(s || "");
+  }
+
+  /* Render post body for the public feed. Rich HTML is shown as-is (server-sanitised,
+     so it is safe). Legacy plain text is escaped and wrapped into paragraphs so line
+     breaks / bullet glyphs survive. */
+  function renderRich(s) {
+    var t = s == null ? "" : String(s);
+    if (!t.trim()) return "";
+    if (isRichText(t)) {
+      return '<div class="post-richtext">' + t + "</div>";
+    }
+    var paras = t.split(/\n{2,}/);
+    var out = '<div class="post-richtext">';
+    paras.forEach(function (block) {
+      block = block.trim();
+      if (!block) return;
+      if (/^[-*•]\s/m.test(block)) {
+        var items = block.split(/\n/).map(function (l) { return l.replace(/^[-*•]\s*/, ""); }).filter(Boolean);
+        out += "<ul>" + items.map(function (i) { return "<li>" + esc(i) + "</li>"; }).join("") + "</ul>";
+      } else if (/^\d+[.)]\s/.test(block)) {
+        var oi = block.split(/\n/).map(function (l) { return l.replace(/^\d+[.)]\s*/, ""); }).filter(Boolean);
+        out += "<ol>" + oi.map(function (i) { return "<li>" + esc(i) + "</li>"; }).join("") + "</ol>";
+      } else {
+        out += "<p>" + block.replace(/\n/g, "<br />") + "</p>";
+      }
+    });
+    out += "</div>";
+    return out;
+  }
+
   /* ---------- section builders ---------- */
 
   function heroSection() {
@@ -107,20 +140,18 @@
         ? '<img src="' + esc(p.images[0]) + '" alt="' + esc(p.title) + '" loading="lazy" />'
         : '<span class="project-media-fallback"><svg class="ic"><use href="#i-folder"/></svg></span>';
       var tech = (p.tech || []).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
-      var links = "";
-      if (p.link) links += '<a href="' + esc(p.link) + '" target="_blank" rel="noopener"><svg class="ic"><use href="#i-arrow-r"/></svg> Live</a>';
-      if (p.github) links += '<a href="' + esc(p.github) + '" target="_blank" rel="noopener"><svg class="ic"><use href="#i-github"/></svg> GitHub</a>';
+      var linkKey = p.slug || p.id;
       return (
-        '<article class="project-card glass" data-reveal style="--rd:' + (i % 3) * 70 + 'ms">' +
-          '<div class="project-media">' + img + "</div>" +
+        '<a class="project-card glass project-link" href="#/project/' + esc(linkKey) + '" data-reveal style="--rd:' + (i % 3) * 70 + 'ms">' +
+          '<div class="project-media">' + img +
+            '<span class="project-media-more">View Case Study <svg class="ic"><use href="#i-arrow-r"/></svg></span>' +
+          "</div>" +
           '<div class="project-body">' +
             "<h3>" + esc(p.title) + "</h3>" +
             "<p>" + esc(p.shortDesc || "") + "</p>" +
-            (p.contribution ? '<p class="project-field"><strong>My contribution</strong>' + esc(p.contribution) + "</p>" : "") +
             (tech ? '<div class="project-tech">' + tech + "</div>" : "") +
-            (links ? '<div class="project-links">' + links + "</div>" : "") +
           "</div>" +
-        "</article>"
+        "</a>"
       );
     }).join("");
 
@@ -187,18 +218,48 @@
   }
 
   function educationSection() {
-    var items = (C.about.education || []).map(function (ed, i) {
-      var ongoing = !/complet/i.test(ed.status || "");
+    var src = (C.education && C.education.length ? C.education : (C.about.education || [])).slice();
+    src.sort(function (a, b) { return (a.order ?? 0) - (b.order ?? 0) || String(a.startYear||"").localeCompare(String(b.startYear||"")); });
+    var items = src.map(function (ed, i) {
+      var ongoing = ed.currentStudying === true || /pursu|current|ongoing|studying/i.test(ed.status || "");
       var resLine = "";
-      if (ed.showResult !== false && ed.resultType && ed.result) {
-        resLine = '<p class="edu-result"><span class="edu-res-label">' + (ed.resultType === "gpa" ? "GPA" : "CGPA") + "</span>" +
-          "<strong>" + esc(ed.result) + "</strong>" +
+      var scale = ed.resultScale || ed.resultScaleGpa || ed.resultScaleCgpa || "4.00";
+      /* support both legacy (resultType/result) and new explicit gpa/cgpa fields */
+      if (ed.gpa && ed.gpa !== "0" && ed.gpa) {
+        resLine += '<p class="edu-result"><span class="edu-res-label">GPA</span><strong>' + esc(ed.gpa) + "</strong>" +
+          (scale ? '<span class="edu-res-scale">/ ' + esc(scale) + "</span>" : "") + "</p>";
+      } else if (ed.showResult !== false && ed.resultType === "gpa" && ed.result) {
+        resLine += '<p class="edu-result"><span class="edu-res-label">GPA</span><strong>' + esc(ed.result) + "</strong>" +
           (ed.resultScale ? '<span class="edu-res-scale">/ ' + esc(ed.resultScale) + "</span>" : "") + "</p>";
       }
+      if (ed.cgpa && ed.cgpa !== "0") {
+        resLine += '<p class="edu-result"><span class="edu-res-label">CGPA</span><strong>' + esc(ed.cgpa) + "</strong>" +
+          (scale ? '<span class="edu-res-scale">/ ' + esc(scale) + "</span>" : "") + "</p>";
+      } else if (ed.showResult !== false && ed.resultType === "cgpa" && ed.result) {
+        resLine += '<p class="edu-result"><span class="edu-res-label">CGPA</span><strong>' + esc(ed.result) + "</strong>" +
+          (ed.resultScale ? '<span class="edu-res-scale">/ ' + esc(ed.resultScale) + "</span>" : "") + "</p>";
+      }
+      var levelBadge = ed.level ? '<span class="edu-level">' + esc(ed.level) + "</span>" : "";
+      var subInfo = "";
+      if (ed.department || ed.subject) subInfo = '<p class="edu-sub">' + [ed.department, ed.subject].filter(Boolean).map(esc).join(" · ") + "</p>";
+      var dateLine = "";
+      if (ed.startYear || ed.endYear || ed.currentStudying) {
+        var endD = ed.currentStudying ? "Present" : (ed.endYear || "");
+        dateLine = '<p class="edu-dates"><svg class="ic"><use href="#i-calendar"/></svg> ' + esc(ed.startYear || "—") + " – " + esc(endD || "—") + "</p>";
+      }
+      var loc = ed.location ? '<p class="edu-loc"><svg class="ic"><use href="#i-pin"/></svg> ' + esc(ed.location) + "</p>" : "";
+      var desc = ed.description ? "<p>" + esc(ed.description) + "</p>" : "";
+      var website = ed.website ? '<a class="edu-link" href="' + esc(ed.website) + '" target="_blank" rel="noopener"><svg class="ic"><use href="#i-ext"/></svg> Website</a>' : "";
+      var degree = ed.degree || ed.program || "";
       return '<article class="edu-item" data-reveal style="--rd:' + i * 80 + 'ms">' +
         '<div class="edu-icon"><svg class="ic"><use href="#i-cap"/></svg></div>' +
-        '<div class="edu-card glass"><span class="edu-status' + (ongoing ? "" : " done") + '">' + esc(ed.status) + "</span>" +
-        "<h3>" + esc(ed.degree) + '</h3><p class="edu-inst">' + esc(ed.institution) + "</p>" + resLine + "</div></article>";
+        '<div class="edu-card glass"><div class="edu-top">' +
+          (ed.logo ? '<img class="edu-logo" src="' + esc(ed.logo) + '" alt="" loading="lazy" />' : "") +
+          '<div class="edu-top-main">' + levelBadge +
+          '<span class="edu-status' + (ongoing ? "" : " done") + '">' + esc(ed.status || (ongoing ? "Currently Studying" : "Completed")) + "</span></div></div>" +
+          "<h3>" + (degree ? esc(degree) : "Untitled") + '</h3><p class="edu-inst">' + esc(ed.institution || "") + "</p>" +
+          subInfo + dateLine + loc + resLine + desc + website +
+        "</div></article>";
     }).join("");
     return (
       '<section id="education" class="section"><div class="container">' +
@@ -222,6 +283,193 @@
         '<div class="certs-grid">' + cards + "</div>" +
       "</div></section>"
     );
+  }
+
+  /* ---------- Project Details (case study page) ---------- */
+
+  function projectLinksHTML(p) {
+    var keys = [
+      { k: "github", label: "GitHub", icon: "#i-github" },
+      { k: "live", label: "Live Demo", icon: "#i-ext" },
+      { k: "demo", label: "Live Demo", icon: "#i-ext" },
+      { k: "link", label: "Live Demo", icon: "#i-ext" },
+      { k: "documentation", label: "Documentation", icon: "#i-file-text" },
+      { k: "doc", label: "Documentation", icon: "#i-file-text" },
+      { k: "facebook", label: "Facebook", icon: "#i-facebook" },
+      { k: "youtube", label: "YouTube", icon: "#i-youtube" },
+      { k: "linkedin", label: "LinkedIn", icon: "#i-linkedin" },
+      { k: "other", label: "More Info", icon: "#i-ext" }
+    ];
+    function iconForLabel(label) {
+      var l = String(label || "").toLowerCase();
+      if (l.indexOf("github") !== -1) return "#i-github";
+      if (l.indexOf("youtube") !== -1) return "#i-youtube";
+      if (l.indexOf("facebook") !== -1) return "#i-facebook";
+      if (l.indexOf("linkedin") !== -1) return "#i-linkedin";
+      if (l.indexOf("demo") !== -1 || l.indexOf("live") !== -1 || l.indexOf("play") !== -1) return "#i-ext";
+      if (l.indexOf("doc") !== -1 || l.indexOf("guide") !== -1) return "#i-file-text";
+      return "#i-ext";
+    }
+    var out = "";
+    var l = p.links;
+    if (Array.isArray(l)) {
+      l.forEach(function (entry) {
+        var label = "", url = "";
+        if (entry && typeof entry === "object") { label = entry.label || ""; url = entry.url || ""; }
+        else {
+          var s = String(entry || "");
+          var ci = s.indexOf(":");
+          if (ci > 0) { label = s.slice(0, ci).trim(); url = s.slice(ci + 1).trim(); }
+          else { url = s.trim(); }
+        }
+        if (!url) return;
+        out += '<a class="pl-btn" href="' + esc(url) + '" target="_blank" rel="noopener nofollow">' +
+          '<svg class="ic"><use href="' + iconForLabel(label) + '"/></svg>' + esc(label || "More Info") + "</a>";
+      });
+    } else {
+      var links = {};
+      if (l && typeof l === "object") links = l;
+      if (!links.github && p.github) links.github = p.github;
+      if (!(links.live || links.demo || links.link) && p.link) links.live = p.link;
+      keys.forEach(function (item) {
+        var url = links[item.k];
+        if (!url) return;
+        out += '<a class="pl-btn" href="' + esc(url) + '" target="_blank" rel="noopener nofollow"><svg class="ic"><use href="' + item.icon + '"/></svg>' + item.label + "</a>";
+      });
+    }
+    return out;
+  }
+
+  function projectTechHTML(tech) {
+    return (tech || []).map(function (t) { return '<span class="chip">' + esc(t) + "</span>"; }).join("");
+  }
+
+  function featureList(items) {
+    return (items || []).map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("");
+  }
+
+  function projectDetailsHTML(p) {
+    var cover = p.images && p.images.length
+      ? '<div class="pd-cover"><img src="' + esc(p.images[0]) + '" alt="' + esc(p.title) + '" /></div>'
+      : "";
+    var video = p.video && (p.videoUrl || p.video)
+      ? '<section class="pd-video"><div class="pd-video-inner">' +
+          '<div class="video-shell" ' +
+            (p.videoPoster ? 'style="--poster:url(\'' + esc(p.videoPoster) + '\')"' : "") + '>' +
+            '<video class="custom-video" id="project-video" preload="metadata" playsinline ' +
+            (p.videoPoster ? 'poster="' + esc(p.videoPoster) + '"' : "") + '>' +
+              '<source src="' + esc(p.videoUrl || p.video) + '" type="' + esc(p.videoMime || "video/mp4") + '" />' +
+            "Your browser does not support HTML5 video.</video>" +
+            '<div class="vc-bigplay" data-vplay><span class="bp-btn"><svg class="ic"><use href="#i-play"/></svg></span></div>' +
+            renderVideoOverlay(p) +
+            buildVideoControls() +
+          "</div>" +
+          (renderVideoInfo(p)) +
+        "</div></section>"
+      : "";
+
+    var caseBlocks = "";
+    var short = p.shortDesc ? '<div class="pd-block"><h3>Overview</h3><p>' + esc(p.shortDesc) + "</p></div>" : "";
+    var full = p.description || p.fullDesc;
+    if (full) caseBlocks += '<div class="pd-block"><h3>Project Description</h3><div class="pd-html">' + richOrText(full) + "</div></div>";
+    if (p.contribution) caseBlocks += '<div class="pd-block"><h3>What I Did</h3><div class="pd-html">' + richOrText(p.contribution) + "</div></div>";
+    if (p.tech && p.tech.length) caseBlocks += '<div class="pd-block"><h3>Technologies Used</h3><div class="pd-tech">' + projectTechHTML(p.tech) + "</div></div>";
+    var features = p.features && p.features.length ? p.features : (p.keyFeatures || []);
+    if (features.length) caseBlocks += '<div class="pd-block"><h3>Key Features</h3><ul class="pd-list check-list">' + featureList(features) + "</ul></div>";
+    if (p.challenges && p.challenges.length) caseBlocks += '<div class="pd-block"><h3>Challenges</h3><ul class="pd-list">' + featureList(p.challenges) + "</ul></div>";
+    if (p.solutions && p.solutions.length) caseBlocks += '<div class="pd-block"><h3>Solutions</h3><ul class="pd-list">' + featureList(p.solutions) + "</ul></div>";
+
+    var links = projectLinksHTML(p);
+    var gallery = "";
+    if (p.images && p.images.length > 1) {
+      gallery = '<div class="pd-block"><h3>Gallery</h3><div class="pd-gallery">' +
+        p.images.map(function (u, i) {
+          return '<img src="' + esc(u) + '" alt="' + esc(p.title) + " " + (i + 1) + '" loading="lazy" data-lightbox />';
+        }).join("") + "</div></div>";
+    }
+
+    return (
+      '<article class="project-detail-page section solo-section">' +
+        '<div class="container">' +
+          '<a class="pd-back" href="#/projects">← Back to Projects</a>' +
+          '<div class="pd-header">' +
+            (p.category ? '<span class="pd-category">' + esc(p.category) + "</span>" : "") +
+            '<h1 class="pd-title">' + esc(p.title || "Project") + "</h1>" +
+            (p.shortDesc ? '<p class="pd-lead">' + esc(p.shortDesc) + "</p>" : "") +
+            (links ? '<div class="pd-links">' + links + "</div>" : "") +
+          "</div>" +
+          cover +
+          video +
+          '<div class="pd-content">' + short + caseBlocks + gallery + "</div>" +
+        "</div>" +
+      "</article>"
+    );
+  }
+
+  function richOrText(t) {
+    if (!t) return "";
+    var s = String(t);
+    if (isRichText(s)) return s;
+    return s.split(/\n+/).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+  }
+
+  /* optional subtle overlay text over the top of the video */
+  function renderVideoOverlay(p) {
+    var show = p.videoOverlayEnabled !== false && (p.videoTitle || p.videoOverlayText || (p.videoOverlays && p.videoOverlays.length));
+    if (!show) return "";
+    var html = '<div class="video-overlay">';
+    if (p.videoTitle) html += '<div class="vo-title">' + esc(p.videoTitle) + "</div>";
+    if (p.videoDescription) html += '<div class="vo-desc">' + esc(p.videoDescription) + "</div>";
+    if (p.videoCaption) html += '<div class="vo-caption">' + esc(p.videoCaption) + "</div>";
+    if (p.videoOverlayText) html += '<div class="vo-text">' + escapeRich(p.videoOverlayText) + "</div>";
+    if (p.videoOverlays && p.videoOverlays.length) {
+      html += '<div class="vo-tags">' + p.videoOverlays.map(function (o) { return "<span>" + esc(o) + "</span>"; }).join("") + "</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+  function escapeRich(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function buildVideoControls() {
+    return (
+      '<div class="vc-controls" id="vc-controls">' +
+        '<div class="vc-progress" id="vc-progress"><div class="vc-buffer" id="vc-buffer"></div><div class="vc-fill" id="vc-fill"></div><div class="vc-dot" id="vc-dot"></div></div>' +
+        '<div class="vc-row">' +
+          '<button type="button" class="vc-btn" id="vc-play" data-role="play" aria-label="Play/Pause"><svg class="ic"><use id="vc-play-icon" href="#i-play"/></svg></button>' +
+          '<button type="button" class="vc-btn vc-mute" id="vc-mute" aria-label="Mute"><svg class="ic"><use id="vc-mute-icon" href="#i-vol"/></svg></button>' +
+          '<input type="range" class="vc-volume" id="vc-volume" min="0" max="100" value="100" aria-label="Volume" />' +
+          '<span class="vc-time" id="vc-time">0:00 / 0:00</span>' +
+          '<span class="vc-spacer"></span>' +
+          '<button type="button" class="vc-btn" id="vc-pip" aria-label="Picture-in-picture"><svg class="ic"><use href="#i-pip"/></svg></button>' +
+          '<select class="vc-speed" id="vc-speed" aria-label="Playback speed">' +
+            (["0.5","0.75","1","1.25","1.5","1.75","2"].map(function (s) {
+              return '<option value="' + s + '"' + (s === "1" ? " selected" : "") + ">" + s + "×</option>";
+            }).join("")) +
+          "</select>" +
+          '<button type="button" class="vc-btn" id="vc-full" aria-label="Fullscreen"><svg class="ic"><use id="vc-full-icon" href="#i-full"/></svg></button>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  /* Remaining video explanation / info section shown under the player */
+  function renderVideoInfo(p) {
+    if (!p.videoDescription && !p.tech && !p.keyFeatures && !p.videoCaption) return "";
+    var blocks = "";
+    if (p.videoTitle) blocks += "<h3>" + esc(p.videoTitle) + "</h3>";
+    if (p.videoDescription) blocks += "<p>" + esc(p.videoDescription) + "</p>";
+    if (p.tech && p.tech.length) {
+      blocks += '<div class="vi-label">Technologies</div><div class="pd-tech">' + projectTechHTML(p.tech) + "</div>";
+    }
+    var feats = p.keyFeatures && p.keyFeatures.length ? p.keyFeatures : (p.features || []);
+    if (feats.length) {
+      blocks += '<div class="vi-label">Key Work</div><ul class="pd-list check-list">' + featureList(feats) + "</ul>";
+    }
+    return '<div class="video-info">' + blocks + "</div>";
   }
 
   var CAT_CLASS = {
@@ -255,7 +503,7 @@
           (p.category ? '<span class="cat-chip ' + (CAT_CLASS[catKey] || "") + '">' + esc(p.category) + "</span>" : "") +
         "</header>" +
         '<h3 class="post-title">' + esc(p.title) + "</h3>" +
-        '<p class="post-caption">' + esc(p.text) + "</p>" +
+        renderRich(p.text) +
         gallery +
         (tags ? '<div class="post-tags">' + tags + "</div>" : "") +
         '<footer class="post-actions">' +
@@ -338,13 +586,20 @@
   ];
 
   /* ---------- hash routing ----------
-     "#/section"  -> show ONLY that section (solo view, no API calls)
-     "#/" or ""   -> full homepage (all sections, natural scrolling)
-     "#section"   -> plain anchor scroll inside the current view        */
+     "#/section"     -> show ONLY that section (solo view)
+     "#/project/:id" -> show a single project details case-study page
+     "#/" or ""      -> full homepage (all sections)
+     "#section"      -> plain anchor scroll inside the current view        */
+
+  var PROJECT_ID = null;
 
   function currentMode() {
     var m = (location.hash || "").match(/^#\/([a-zA-Z]+)/);
     return m ? m[1].toLowerCase() : null;
+  }
+  function currentProjectId() {
+    var m = (location.hash || "").match(/^#\/project\/([\w-]+)/);
+    return m ? m[1] : null;
   }
 
   var pendingScroll = null;
@@ -379,14 +634,22 @@
 
   function render() {
     var app = el("app");
-    var order = (C.sections && C.sections.order) || Object.keys(BUILDERS);
+    var order = (C.sections && C.sections.order) || ["hero", "experience", "projects", "about", "education", "certifications", "skills", "blog", "contact"];
     var enabled = (C.sections && C.sections.enabled) || {};
+    var projId = currentProjectId();
     var mode = currentMode();
-    if (!(mode && BUILDERS[mode] && enabled[mode] !== false)) mode = null;
+    var project = null;
+    if (projId) {
+      project = C.projects.filter(function (p) { return p.slug === projId || p.id === projId; })[0] || null;
+    }
+    if (project) mode = null;
+    if (mode === "project") mode = null;
 
-    document.body.classList.toggle("solo", !!mode);
+    document.body.classList.toggle("solo", !!mode || !!project);
 
-    if (mode) {
+    if (project) {
+      app.innerHTML = projectDetailsHTML(project);
+    } else if (mode) {
       app.innerHTML = BUILDERS[mode]();
     } else {
       var html = "";
@@ -398,24 +661,29 @@
     lastMode = mode;
 
     /* chrome */
-    el("nav-links").innerHTML = navList(enabled, mode);
+    var navMode = project ? "projects" : mode;
+    el("nav-links").innerHTML = navList(enabled, navMode);
     el("nav-contact").style.display = enabled.contact === false ? "none" : "";
     el("mobile-menu").innerHTML =
-      navPlain(enabled, mode) +
+      navPlain(enabled, navMode) +
       (enabled.contact !== false ? '<a href="#contact" class="mobile-link mobile-cta">Contact Me</a>' : "");
     el("foot-links").innerHTML = footNav(enabled);
     el("brand-name").innerHTML = "Shagor<span class='logo-dot'>.</span>";
 
     initInteractions(mode);
-    if ((!mode || mode === "hero") && !C.home.heroImage) runTerminal();
+    if (project) initProjectPage();
+    if ((!mode && !project) || (mode === "hero")) {
+      if (!C.home.heroImage) runTerminal();
+    }
 
     if (pendingScroll) {
       var t = el(pendingScroll);
       pendingScroll = null;
       if (t) setTimeout(function () { scrollToEl(t); }, 80);
-    } else if (mode) {
+    } else if (mode || project) {
       window.scrollTo(0, 0);
     }
+    PROJECT_ID = projId;
   }
 
   function scrollToEl(t) {
@@ -424,7 +692,9 @@
 
   /* route links (#/...) re-render via hashchange; plain anchors are handled manually */
   window.addEventListener("hashchange", function () {
-    if ((currentMode() || null) === lastMode) return;
+    var m = currentMode() || null;
+    var pid = currentProjectId();
+    if (m === lastMode && pid === PROJECT_ID) return;
     render();
   });
 
@@ -583,6 +853,126 @@
     }
   }
 
+  /* ---------- custom project video player ---------- */
+  function initProjectPage() {
+    var video = el("project-video");
+    if (!video) return;
+
+    var shell = video.closest(".video-shell");
+    var playBtn = el("vc-play");
+    var playIcon = el("vc-play-icon");
+    var muteBtn = el("vc-mute");
+    var muteIcon = el("vc-mute-icon");
+    var volInput = el("vc-volume");
+    var timeEl = el("vc-time");
+    var progress = el("vc-progress");
+    var fill = el("vc-fill");
+    var buffer = el("vc-buffer");
+    var dot = el("vc-dot");
+    var pipBtn = el("vc-pip");
+    var fullBtn = el("vc-full");
+    var fullIcon = el("vc-full-icon");
+    var speed = el("vc-speed");
+
+    function fmt(t) {
+      if (isNaN(t)) return "0:00";
+      t = Math.round(t);
+      var m = Math.floor(t / 60), s = t % 60;
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+    function updateTime() { timeEl.textContent = fmt(video.currentTime) + " / " + fmt(video.duration); }
+    function updatePlay() {
+      playIcon.setAttribute("href", video.paused ? "#i-play" : "#i-pause");
+      var playing = !video.paused && !video.ended;
+      shell.classList.toggle("playing", playing);
+    }
+    function togglePlay() {
+      if (video.paused) video.play().catch(function () {});
+      else video.pause();
+    }
+    function updateProgress() {
+      if (!video.duration) return;
+      var pct = (video.currentTime / video.duration) * 100;
+      fill.style.width = pct + "%";
+      dot.style.left = "calc(" + pct + "% - 8px)";
+    }
+    function updateVolume() {
+      var mute = video.muted || video.volume === 0;
+      muteIcon.setAttribute("href", mute ? "#i-muted" : "#i-vol");
+      if (!video.muted) volInput.value = video.volume * 100;
+    }
+
+    playBtn.addEventListener("click", togglePlay);
+    video.addEventListener("click", togglePlay);
+    video.addEventListener("play", updatePlay);
+    video.addEventListener("pause", updatePlay);
+    video.addEventListener("ended", updatePlay);
+    video.addEventListener("timeupdate", function () { updateTime(); updateProgress(); });
+    video.addEventListener("loadedmetadata", updateTime);
+    video.addEventListener("durationchange", updateTime);
+    video.addEventListener("volumechange", updateVolume);
+    video.addEventListener("progress", function () {
+      if (video.buffered.length) buffer.style.width = (video.buffered.end(video.buffered.length - 1) / video.duration) * 100 + "%";
+    });
+
+    muteBtn.addEventListener("click", function () {
+      video.muted = !video.muted;
+      updateVolume();
+    });
+    volInput.addEventListener("input", function () {
+      video.volume = +volInput.value / 100;
+      video.muted = video.volume === 0;
+      updateVolume();
+    });
+
+    var seeking = false;
+    progress.addEventListener("mousedown", function () { seeking = true; });
+    window.addEventListener("mouseup", function () { seeking = false; });
+    progress.addEventListener("click", function (e) {
+      var rect = progress.getBoundingClientRect();
+      var ratio = (e.clientX - rect.left) / rect.width;
+      if (video.duration) video.currentTime = ratio * video.duration;
+    });
+
+    speed.addEventListener("change", function () { video.playbackRate = parseFloat(speed.value) || 1; });
+
+    pipBtn.addEventListener("click", function () {
+      if (document.pictureInPictureEnabled) {
+        if (document.pictureInPictureElement) document.exitPictureInPicture();
+        else video.requestPictureInPicture().catch(function () {});
+      }
+    });
+
+    fullBtn.addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (shell.requestFullscreen) shell.requestFullscreen();
+    });
+    document.addEventListener("fullscreenchange", function () {
+      fullIcon.setAttribute("href", document.fullscreenElement ? "#i-shrink" : "#i-full");
+      shell.classList.toggle("fullscreen", !!document.fullscreenElement);
+    });
+
+    /* keyboard controls when project page focused */
+    document.addEventListener("keydown", function (e) {
+      if (!el("project-video")) return;
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT")) return;
+      if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+      else if (e.key === "m" || e.key === "M") { video.muted = !video.muted; updateVolume(); }
+      else if (e.key === "ArrowRight") { video.currentTime = Math.min(video.duration || 0, video.currentTime + 5); }
+      else if (e.key === "ArrowLeft") { video.currentTime = Math.max(0, video.currentTime - 5); }
+      else if (e.key === "f" || e.key === "F") { fullBtn.click(); }
+    });
+
+    /* clicking the big play overlay */
+    document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-vplay]")) togglePlay();
+    });
+
+    updateTime();
+    updateVolume();
+    updatePlay();
+  }
+
   function bindCommentForm(form) {
     if (!form || form.dataset.bound) return;
     form.dataset.bound = "1";
@@ -666,6 +1056,23 @@
   /* ---------- boot ---------- */
 
   el("foot-year").textContent = new Date().getFullYear();
+
+  /* Record a portfolio view — once per visitor per hour (server dedupes). */
+  (function trackView() {
+    var vid = null;
+    try {
+      vid = localStorage.getItem("pv_visitor");
+      if (!vid) {
+        vid = "v" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem("pv_visitor", vid);
+      }
+    } catch (e) { vid = "v" + Date.now().toString(36); }
+    fetch("/api/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visitorId: vid })
+    }).catch(function () {});
+  })();
 
   /* chrome bindings — once, never re-bound on re-render */
   window.addEventListener("scroll", syncChrome, { passive: true });
