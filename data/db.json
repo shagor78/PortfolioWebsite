@@ -1,0 +1,543 @@
+{
+  "config": {
+    "salt": "6b5270f6abd0ab411d92369ac847f257",
+    "secret": "2fa469e0cc4de41a0f7e010e52153c0ab6ff197930d5de5f",
+    "passwordHash": "4fa024ffb69b316cc6dc1689592bb2ca3fda316b6f0118b1e3f9ed0641a74453",
+    "passwordChanged": false,
+    "createdAt": "2026-08-24T05:19:33.329Z"
+  },
+  "home": {
+    "name": "Md. Shagor Islam",
+    "title": "DevOps & Cloud Engineer",
+    "subtitle": "System Engineer | Network Engineer | IT Infrastructure",
+    "description": "IT infrastructure professional with hands-on experience in networking, Linux and Windows server administration, virtualization, cloud infrastructure, system security and DevOps technologies.",
+    "currentPosition": "DevOps & Cloud Engineer",
+    "primaryBtn": {
+      "label": "View Experience",
+      "href": "#experience"
+    },
+    "secondaryBtn": {
+      "label": "Contact Me",
+      "href": "#contact"
+    },
+    "heroImage": "",
+    "skills": [
+      "Linux",
+      "Networking",
+      "AWS",
+      "Azure",
+      "GCP",
+      "Docker",
+      "Kubernetes",
+      "Ansible",
+      "Python",
+      "Bash"
+    ]
+  },
+  "about": {
+    "intro": [
+      "I started my professional journey with networking, where I learned how networks communicate and how real-world infrastructure problems are solved.",
+      "My career then moved into system administration, where I worked with Linux and Windows servers, Active Directory, DNS, DHCP, virtualization, monitoring and infrastructure security.",
+      "Today, I am working toward modern DevOps and Cloud Engineering, focusing on cloud infrastructure, containers, automation, deployment and reliable infrastructure operations."
+    ],
+    "belief": "I believe the best engineers are not only people who know technologies, but people who can understand problems, troubleshoot them and build reliable solutions.",
+    "focus": "Cloud Infrastructure • Containers • Automation • Reliable Systems",
+    "images": [],
+    "lifeTitle": "When I'm Not Working",
+    "lifeItems": [],
+    "education": [
+      {
+        "id": "mt6sdwwiu6xnau",
+        "degree": "BSc in Computer Science & Engineering",
+        "institution": "Uttara University",
+        "status": "Currently Pursuing",
+        "resultType": "cgpa",
+        "result": "",
+        "resultScale": "4.00",
+        "showResult": true
+      },
+      {
+        "id": "mt6sdwwih3bjn2",
+        "degree": "Diploma in Computer Engineering",
+        "institution": "Borak Polytechnic Institute",
+        "status": "Completed",
+        "resultType": "",
+        "result": "",
+        "resultScale": "",
+        "showResult": true
+      }
+    ],
+    "certifications": [
+      {
+        "id": "mt6sdwwiyxlm4z",
+        "name": "Cisco Certified Network Associate",
+        "code": "CCNA 200-301",
+        "type": "Certification"
+      },
+      {
+        "id": "mt6sdwwiypgc1z",
+        "name": "MikroTik Certified Network Associate",
+        "code": "MTCNA",
+        "type": "Certification"
+      },
+      {
+        "id": "mt6sdwwiu358mw",
+        "name": "IT Essentials",
+        "code": "",
+        "type": "Course"
+      },
+      {
+        "id": "mt6sdwwi2rj54j",
+        "name": "Linux Essentials",
+        "code": "",
+        "type": "Course"
+      },
+      {
+        "id": "mt6sdwwirxp321",
+        "name": "DevOps Tools",
+        "code": "",
+        "type": "Course"
+      },
+      {
+        "id": "mt6sdwwixnqe9q",
+        "name": "Industrial Training",
+        "code": "",
+        "type": "Training"
+      }
+    ]
+  },
+  "skills": [
+    {
+      "id": "mt6sdwwiq8gt9p",
+      "category": "Networking",
+      "items": [
+        "CCNA",
+        "MikroTik",
+        "Cisco",
+        "VLAN",
+        "OSPF",
+        "EIGRP",
+        "BGP",
+        "NAT",
+        "VLSM",
+        "Firewall"
+      ]
+    },
+    {
+      "id": "mt6sdwwiqrp8gb",
+      "category": "Linux",
+      "items": [
+        "Ubuntu",
+        "CentOS",
+        "Red Hat",
+        "Linux Server Administration",
+        "Server Monitoring",
+        "Troubleshooting",
+        "Bash"
+      ]
+    },
+    {
+      "id": "mt6sdwwi3w82e6",
+      "category": "Windows",
+      "items": [
+        "Windows Server",
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Group Policy"
+      ]
+    },
+    {
+      "id": "mt6sdwwi55f2qd",
+      "category": "Virtualization",
+      "items": [
+        "VMware",
+        "Hyper-V",
+        "KVM",
+        "vSAN"
+      ]
+    },
+    {
+      "id": "mt6sdwwih22q9m",
+      "category": "Cloud",
+      "items": [
+        "AWS EC2",
+        "AWS ECS",
+        "Azure",
+        "GCP"
+      ]
+    },
+    {
+      "id": "mt6sdwwibtm6cc",
+      "category": "DevOps",
+      "items": [
+        "Docker",
+        "Kubernetes",
+        "CI/CD",
+        "Ansible",
+        "Python"
+      ]
+    },
+    {
+      "id": "mt6sdwwi32h8j8",
+      "category": "Security",
+      "items": [
+        "Palo Alto",
+        "Wazuh",
+        "Infrastructure Security",
+        "System Monitoring"
+      ]
+    },
+    {
+      "id": "mt6sdwwij06og5",
+      "category": "Tools",
+      "items": [
+        "PuTTY",
+        "Winbox",
+        "Wireshark",
+        "VMware",
+        "Git"
+      ]
+    }
+  ],
+  "experiences": [
+    {
+      "id": "mt6sdwwiiw0s0t",
+      "company": "ICC Communication Ltd.",
+      "position": "DevOps & Cloud Engineer",
+      "startDate": "July 2026",
+      "endDate": "",
+      "current": true,
+      "logo": "",
+      "summary": "Working on cloud infrastructure, deployment automation, containerization, monitoring and infrastructure reliability for production services.",
+      "description": "After working in system administration and infrastructure operations, I moved into a DevOps & Cloud Engineering role, focusing on cloud infrastructure, deployment, automation, containerization, monitoring and infrastructure reliability.",
+      "responsibilities": [
+        "Manage and maintain cloud-based infrastructure and production environments to ensure system reliability and availability.",
+        "Work with AWS infrastructure, including EC2 and ECS, for server and application deployment.",
+        "Configure and manage Linux-based cloud servers and troubleshoot infrastructure-related issues.",
+        "Work with Docker and Kubernetes for containerized application environments and deployment.",
+        "Support CI/CD workflows and improve the consistency of application deployment processes.",
+        "Monitor infrastructure resources, system health, services, and application environments.",
+        "Troubleshoot deployment, server, container, and service-related issues.",
+        "Analyze system logs and infrastructure issues to identify root causes and apply appropriate solutions.",
+        "Contribute to infrastructure automation, operational efficiency, and reliable deployment practices.",
+        "Support cloud and infrastructure optimization through proper configuration, monitoring, and troubleshooting."
+      ],
+      "tech": [
+        "AWS EC2",
+        "AWS ECS",
+        "Linux",
+        "Docker",
+        "Kubernetes",
+        "CI/CD"
+      ],
+      "visible": true,
+      "order": 0
+    },
+    {
+      "id": "mt6sdwwiu0xo00",
+      "company": "ICC Communication Ltd.",
+      "position": "Assistant System Engineer",
+      "startDate": "February 2025",
+      "endDate": "July 2026",
+      "current": false,
+      "logo": "",
+      "summary": "Managed and monitored 50+ production Linux and Windows servers while contributing to infrastructure reliability, security and operational stability.",
+      "description": "Core system administration role covering Linux/Windows servers, virtualization, security and day-to-day production operations.",
+      "responsibilities": [
+        "Configured and maintained production Linux servers (Ubuntu, CentOS, Red Hat).",
+        "Managed Windows Server environments, Active Directory, DNS, DHCP and Group Policies.",
+        "Managed virtualized infrastructure with VMware and Hyper-V.",
+        "Configured and managed Palo Alto next-generation firewall environments.",
+        "Monitored system security using Wazuh and investigated security-related events.",
+        "Maintained configuration records, system documentation and operational logs."
+      ],
+      "tech": [
+        "Ubuntu",
+        "CentOS",
+        "Red Hat",
+        "Windows Server",
+        "Active Directory",
+        "VMware",
+        "Hyper-V",
+        "Palo Alto",
+        "Wazuh"
+      ],
+      "visible": true,
+      "order": 1
+    },
+    {
+      "id": "mt6sdwwiatkxab",
+      "company": "Exord Online",
+      "position": "Network Engineer",
+      "startDate": "December 2023",
+      "endDate": "February 2025",
+      "current": false,
+      "logo": "",
+      "summary": "Built my foundation in networking — routing, switching, VLANs, firewalls and enterprise network troubleshooting.",
+      "description": "My earlier professional role where I worked on real-world ISP/network infrastructure every day.",
+      "responsibilities": [
+        "Configured MikroTik and Cisco routers and switches.",
+        "Configured VLANs and routing protocols (OSPF, EIGRP, BGP, NAT).",
+        "Performed IP planning using VLSM.",
+        "Analyzed network traffic with Wireshark and optimized bandwidth / latency.",
+        "Worked with firewalls and resolved connectivity issues.",
+        "Configured CCTV/IP camera systems."
+      ],
+      "tech": [
+        "MikroTik",
+        "Cisco",
+        "VLAN",
+        "OSPF",
+        "EIGRP",
+        "BGP",
+        "NAT",
+        "VLSM",
+        "Firewall",
+        "Wireshark"
+      ],
+      "visible": true,
+      "order": 2
+    }
+  ],
+  "projects": [
+    {
+      "title": "NamaVideo Windows Video Downloader",
+      "shortDesc": "NamaVideo — Windows Video Downloader\n\nNamaVideo is a simple and fast video downloader application designed exclusively for Windows users. It allows users to download videos easily from supported online platforms with a clean, user-friendly interface.\n\n Key Features:\n\nFast and easy video downloading\nSimple & clean interface\nWindows-only application\nEasy to use for everyday downloads\nLightweight and user-friendly",
+      "contribution": "### My Contribution\n\nI designed and developed the **NamaVideo** Windows application from scratch. I worked on the application design, user interface, video downloading functionality, error handling, testing, and overall performance optimization.\n",
+      "tech": [
+        "Electron",
+        "Node.js",
+        "JavaScript",
+        "HTML",
+        "CSS",
+        "FFmpeg",
+        "npm"
+      ],
+      "link": "",
+      "github": "https://github.com/shagor78/nama-video",
+      "images": [],
+      "status": "published",
+      "id": "mt73dei0o8xrt0",
+      "createdAt": "2026-08-24T10:27:05.256Z",
+      "updatedAt": "2026-08-24T10:39:23.800Z",
+      "order": 0,
+      "publishedAt": "2026-08-24T10:36:18.584Z"
+    }
+  ],
+  "posts": [
+    {
+      "id": "mt6sdwwi0pfh3d",
+      "title": "Weekend in Dhaka 🌆",
+      "text": "Sometimes stepping away from servers and terminals is exactly what you need.",
+      "location": "Dhaka, Bangladesh",
+      "date": "2026-08-16",
+      "category": "Life",
+      "tags": [
+        "weekend",
+        "dhaka"
+      ],
+      "images": [],
+      "status": "published",
+      "likes": 2,
+      "comments": [],
+      "order": 0,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "id": "mt6sdwwikjfqmm",
+      "title": "Learning Kubernetes 🚀",
+      "text": "Spent the weekend experimenting with containers, deployments and services.",
+      "location": "",
+      "date": "2026-08-09",
+      "category": "Learning",
+      "tags": [
+        "kubernetes",
+        "containers"
+      ],
+      "images": [],
+      "status": "published",
+      "likes": 2,
+      "comments": [],
+      "order": 1,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "title": "Today Office work at night",
+      "text": "",
+      "location": "",
+      "date": "2026-08-24",
+      "category": "Life",
+      "tags": [],
+      "images": [],
+      "status": "published",
+      "id": "mt6stsif8pckzb",
+      "likes": 0,
+      "comments": [],
+      "order": 2,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "title": "Untitled post",
+      "text": "",
+      "location": "",
+      "date": "2026-08-24",
+      "category": "Life",
+      "tags": [],
+      "images": [],
+      "status": "draft",
+      "id": "mt6suea77rb7rq",
+      "likes": 0,
+      "comments": [],
+      "order": 3,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": null
+    },
+    {
+      "title": "Untitled post",
+      "text": "",
+      "location": "",
+      "date": "2026-08-24",
+      "category": "Life",
+      "tags": [],
+      "images": [],
+      "status": "published",
+      "id": "mt6sujzz8vv6ed",
+      "likes": 1,
+      "comments": [],
+      "order": 4,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "title": "Untitled post",
+      "text": "",
+      "location": "",
+      "date": "2026-08-24",
+      "category": "Life",
+      "tags": [],
+      "images": [],
+      "status": "published",
+      "id": "mt6suudqv1hrmz",
+      "likes": 1,
+      "comments": [],
+      "order": 5,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "title": "Untitled post",
+      "text": "",
+      "location": "",
+      "date": "2026-08-24",
+      "category": "Life",
+      "tags": [],
+      "images": [],
+      "status": "published",
+      "id": "mt6sv1f3fz43rv",
+      "likes": 1,
+      "comments": [],
+      "order": 6,
+      "createdAt": "2026-08-24T05:53:39.721Z",
+      "updatedAt": "2026-08-24T05:53:39.721Z",
+      "publishedAt": "2026-08-24T05:53:39.721Z"
+    },
+    {
+      "title": "Working Night",
+      "text": "enoying",
+      "category": "Life",
+      "tags": [
+        "#Nigtjob"
+      ],
+      "location": "",
+      "date": "2026-08-24",
+      "images": [
+        "/uploads/WhatsApp-Image-2026-08-24-at-113111-AM-mt73718q.jpg"
+      ],
+      "status": "published",
+      "id": "mt737w75f7g42f",
+      "likes": 1,
+      "comments": [],
+      "createdAt": "2026-08-24T10:22:48.257Z",
+      "updatedAt": "2026-08-24T10:22:48.257Z",
+      "publishedAt": "2026-08-24T10:22:48.257Z",
+      "order": 7
+    }
+  ],
+  "messages": [
+    {
+      "id": "mt73s38a4wumbb",
+      "name": "xvb",
+      "email": "shagor@gmail.com",
+      "subject": "cx",
+      "message": "sfdgsffg",
+      "date": "2026-08-24T10:38:30.490Z",
+      "read": true
+    }
+  ],
+  "contact": {
+    "email": "shagor.cst@gmail.com",
+    "phone": "+880 1406-642156",
+    "location": "Dhaka, Bangladesh",
+    "socials": [
+      {
+        "platform": "GitHub",
+        "url": ""
+      },
+      {
+        "platform": "LinkedIn",
+        "url": ""
+      },
+      {
+        "platform": "Facebook",
+        "url": ""
+      },
+      {
+        "platform": "Instagram",
+        "url": ""
+      }
+    ]
+  },
+  "sections": {
+    "enabled": {
+      "hero": true,
+      "experience": true,
+      "projects": true,
+      "about": true,
+      "education": true,
+      "certifications": true,
+      "skills": true,
+      "blog": true,
+      "contact": true
+    },
+    "order": [
+      "hero",
+      "experience",
+      "projects",
+      "about",
+      "education",
+      "certifications",
+      "skills",
+      "blog",
+      "contact"
+    ]
+  },
+  "blogCategories": [
+    "Life",
+    "Learning",
+    "Technology",
+    "Career",
+    "Travel"
+  ],
+  "activity": [],
+  "resume": null
+}
