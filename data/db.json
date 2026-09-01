@@ -322,7 +322,8 @@
       "createdAt": "2026-08-24T10:27:05.256Z",
       "updatedAt": "2026-08-24T10:39:23.800Z",
       "order": 0,
-      "publishedAt": "2026-08-24T10:36:18.584Z"
+      "publishedAt": "2026-08-24T10:36:18.584Z",
+      "links": {}
     }
   ],
   "posts": [
@@ -539,5 +540,20 @@
     "Travel"
   ],
   "activity": [],
-  "resume": null
+  "resume": null,
+  "views": {
+    "total": 1,
+    "today": 1,
+    "week": 1,
+    "month": 1,
+    "lastDate": "2026-08-31",
+    "lastWeek": "2026-08-31",
+    "lastMonth": "2026-08"
+  },
+  "visitors": [
+    {
+      "k": "v6q6p8bz18clmth3l8di",
+      "t": 1788172252340
+    }
+  ]
 }

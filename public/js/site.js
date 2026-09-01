@@ -223,18 +223,20 @@
     var items = src.map(function (ed, i) {
       var ongoing = ed.currentStudying === true || /pursu|current|ongoing|studying/i.test(ed.status || "");
       var resLine = "";
-      var scale = ed.resultScale || ed.resultScaleGpa || ed.resultScaleCgpa || "4.00";
+      var legacyScale = ed.resultScale || ed.resultScaleGpa || ed.resultScaleCgpa || "4.00";
       /* support both legacy (resultType/result) and new explicit gpa/cgpa fields */
-      if (ed.gpa && ed.gpa !== "0" && ed.gpa) {
+      if (ed.gpa && ed.gpa !== "0") {
+        var gScale = ed.gpaScale || legacyScale;
         resLine += '<p class="edu-result"><span class="edu-res-label">GPA</span><strong>' + esc(ed.gpa) + "</strong>" +
-          (scale ? '<span class="edu-res-scale">/ ' + esc(scale) + "</span>" : "") + "</p>";
+          (gScale ? '<span class="edu-res-scale">/ ' + esc(gScale) + "</span>" : "") + "</p>";
       } else if (ed.showResult !== false && ed.resultType === "gpa" && ed.result) {
         resLine += '<p class="edu-result"><span class="edu-res-label">GPA</span><strong>' + esc(ed.result) + "</strong>" +
           (ed.resultScale ? '<span class="edu-res-scale">/ ' + esc(ed.resultScale) + "</span>" : "") + "</p>";
       }
       if (ed.cgpa && ed.cgpa !== "0") {
+        var cScale = ed.cgpaScale || legacyScale;
         resLine += '<p class="edu-result"><span class="edu-res-label">CGPA</span><strong>' + esc(ed.cgpa) + "</strong>" +
-          (scale ? '<span class="edu-res-scale">/ ' + esc(scale) + "</span>" : "") + "</p>";
+          (cScale ? '<span class="edu-res-scale">/ ' + esc(cScale) + "</span>" : "") + "</p>";
       } else if (ed.showResult !== false && ed.resultType === "cgpa" && ed.result) {
         resLine += '<p class="edu-result"><span class="edu-res-label">CGPA</span><strong>' + esc(ed.result) + "</strong>" +
           (ed.resultScale ? '<span class="edu-res-scale">/ ' + esc(ed.resultScale) + "</span>" : "") + "</p>";
@@ -352,19 +354,25 @@
     var cover = p.images && p.images.length
       ? '<div class="pd-cover"><img src="' + esc(p.images[0]) + '" alt="' + esc(p.title) + '" /></div>'
       : "";
-    var video = p.video && (p.videoUrl || p.video)
+    var videoSrc = p.videoUrl || p.video || "";
+    var showVideo = (p.videoEnabled === true) && videoSrc;
+    var video = showVideo
       ? '<section class="pd-video"><div class="pd-video-inner">' +
           '<div class="video-shell" ' +
             (p.videoPoster ? 'style="--poster:url(\'' + esc(p.videoPoster) + '\')"' : "") + '>' +
             '<video class="custom-video" id="project-video" preload="metadata" playsinline ' +
             (p.videoPoster ? 'poster="' + esc(p.videoPoster) + '"' : "") + '>' +
-              '<source src="' + esc(p.videoUrl || p.video) + '" type="' + esc(p.videoMime || "video/mp4") + '" />' +
+              '<source src="' + esc(videoSrc) + '" type="' + esc(p.videoMime || "video/mp4") + '" />' +
             "Your browser does not support HTML5 video.</video>" +
             '<div class="vc-bigplay" data-vplay><span class="bp-btn"><svg class="ic"><use href="#i-play"/></svg></span></div>' +
             renderVideoOverlay(p) +
             buildVideoControls() +
+            '<div class="vc-error" id="vc-error" hidden>' +
+              '<svg class="ic"><use href="#i-warning"/></svg>' +
+              "This video couldn't be played. The URL or file may be unavailable." +
+            "</div>" +
           "</div>" +
-          (renderVideoInfo(p)) +
+          renderVideoInfo(p) +
         "</div></section>"
       : "";
 
@@ -414,16 +422,19 @@
   }
 
   /* optional subtle overlay text over the top of the video */
+  function pVideoDesc(p) { return p.videoDescription || p.videoDesc || ""; }
+  function pVideoTags(p) { return p.videoOverlays || p.videoTags || []; }
   function renderVideoOverlay(p) {
-    var show = p.videoOverlayEnabled !== false && (p.videoTitle || p.videoOverlayText || (p.videoOverlays && p.videoOverlays.length));
+    var tags = pVideoTags(p);
+    var show = p.videoOverlayEnabled !== false && (p.videoTitle || p.videoOverlayText || tags.length);
     if (!show) return "";
     var html = '<div class="video-overlay">';
     if (p.videoTitle) html += '<div class="vo-title">' + esc(p.videoTitle) + "</div>";
-    if (p.videoDescription) html += '<div class="vo-desc">' + esc(p.videoDescription) + "</div>";
+    if (pVideoDesc(p)) html += '<div class="vo-desc">' + esc(pVideoDesc(p)) + "</div>";
     if (p.videoCaption) html += '<div class="vo-caption">' + esc(p.videoCaption) + "</div>";
     if (p.videoOverlayText) html += '<div class="vo-text">' + escapeRich(p.videoOverlayText) + "</div>";
-    if (p.videoOverlays && p.videoOverlays.length) {
-      html += '<div class="vo-tags">' + p.videoOverlays.map(function (o) { return "<span>" + esc(o) + "</span>"; }).join("") + "</div>";
+    if (tags.length) {
+      html += '<div class="vo-tags">' + tags.map(function (o) { return "<span>" + esc(o) + "</span>"; }).join("") + "</div>";
     }
     html += "</div>";
     return html;
@@ -458,10 +469,11 @@
 
   /* Remaining video explanation / info section shown under the player */
   function renderVideoInfo(p) {
-    if (!p.videoDescription && !p.tech && !p.keyFeatures && !p.videoCaption) return "";
+    var desc = pVideoDesc(p);
+    if (!desc && !p.tech && !p.keyFeatures && !p.videoCaption) return "";
     var blocks = "";
     if (p.videoTitle) blocks += "<h3>" + esc(p.videoTitle) + "</h3>";
-    if (p.videoDescription) blocks += "<p>" + esc(p.videoDescription) + "</p>";
+    if (desc) blocks += "<p>" + esc(desc) + "</p>";
     if (p.tech && p.tech.length) {
       blocks += '<div class="vi-label">Technologies</div><div class="pd-tech">' + projectTechHTML(p.tech) + "</div>";
     }
@@ -585,6 +597,68 @@
     { key: "blog", label: "Blog" }
   ];
 
+  /* ---------- navigation (driven by CMS) ----------
+     The navbar is built from C.navigation (managed in admin). Each item has
+     { key, label, url, enabled }. "Home" stays first. A nav click uses the
+     item's url or defaults to "#/key". Items are hidden when the matching
+     section is switched off in C.sections.enabled (preserves legacy behaviour
+     without hard-coding the whole menu).                                 */
+
+  function navHref(n) {
+    if (n && n.url) return n.url;
+    return "#/" + (n && n.key ? n.key : "");
+  }
+  function navExternal(href) {
+    return /^(https?:|mailto:|tel:)/i.test(href) || /^#(?![\/a-zA-Z])/.test(href);
+  }
+  function navEntries(enabled) {
+    var list = (C && C.navigation) || NAV_MAP;
+    return list.filter(function (n) {
+      if (!n || n.enabled === false) return false;
+      var href = navHref(n);
+      var m = href.match(/^#\/([a-zA-Z]+)/);
+      if (m && enabled && enabled[m[1]] === false) return false;
+      return true;
+    });
+  }
+
+  function navList(enabled, mode) {
+    var html = '<li><a href="#/" data-key="home" class="nav-link' + (mode ? "" : " active") + '">Home</a></li>';
+    navEntries(enabled).forEach(function (n) {
+      var href = navHref(n);
+      var ext = navExternal(href);
+      html += "<li><a href=\"" + href + "\" data-key=\"" + (n.key || "") + "\"" +
+        (ext ? ' target="_blank" rel="noopener"' : "") +
+        ' class="nav-link' + (n.key && mode === n.key ? " active" : "") + '">' +
+        esc(n.label || n.key || "") + "</a></li>";
+    });
+    return html;
+  }
+
+  function navPlain(enabled, mode) {
+    var html = '<a href="#/" data-key="home" class="mobile-link' + (mode ? "" : " active") + '">Home</a>';
+    navEntries(enabled).forEach(function (n) {
+      var href = navHref(n);
+      var ext = navExternal(href);
+      html += '<a href="' + href + '" data-key="' + (n.key || "") + '"' +
+        (ext ? ' target="_blank" rel="noopener"' : "") +
+        ' class="mobile-link' + (n.key && mode === n.key ? " active" : "") + '">' +
+        esc(n.label || n.key || "") + "</a>";
+    });
+    return html;
+  }
+
+  function footNav(enabled) {
+    var html = '<a href="#/">Home</a>';
+    navEntries(enabled).forEach(function (n) {
+      var href = navHref(n);
+      var ext = navExternal(href);
+      html += '<a href="' + href + '"' + (ext ? ' target="_blank" rel="noopener"' : "") + ">" +
+        esc(n.label || n.key || "") + "</a>";
+    });
+    return html;
+  }
+
   /* ---------- hash routing ----------
      "#/section"     -> show ONLY that section (solo view)
      "#/project/:id" -> show a single project details case-study page
@@ -604,33 +678,6 @@
 
   var pendingScroll = null;
   var lastMode = null;
-
-  function navList(enabled, mode) {
-    var html = '<li><a href="#/" data-key="home" class="nav-link' + (mode ? "" : " active") + '">Home</a></li>';
-    NAV_MAP.forEach(function (n) {
-      if (enabled[n.key] === false) return;
-      html += '<li><a href="#/' + n.key + '" data-key="' + n.key + '" class="nav-link' + (mode === n.key ? " active" : "") + '">' + n.label + "</a></li>";
-    });
-    return html;
-  }
-
-  function navPlain(enabled, mode) {
-    var html = '<a href="#/" data-key="home" class="mobile-link' + (mode ? "" : " active") + '">Home</a>';
-    NAV_MAP.forEach(function (n) {
-      if (enabled[n.key] === false) return;
-      html += '<a href="#/' + n.key + '" data-key="' + n.key + '" class="mobile-link' + (mode === n.key ? " active" : "") + '">' + n.label + "</a>";
-    });
-    return html;
-  }
-
-  function footNav(enabled) {
-    var html = '<a href="#/">Home</a>';
-    NAV_MAP.forEach(function (n) {
-      if (enabled[n.key] === false) return;
-      html += '<a href="#/' + n.key + '">' + n.label + "</a>";
-    });
-    return html;
-  }
 
   function render() {
     var app = el("app");
@@ -915,6 +962,19 @@
       if (video.buffered.length) buffer.style.width = (video.buffered.end(video.buffered.length - 1) / video.duration) * 100 + "%";
     });
 
+    /* friendly message if the video/URL fails to load or the file is missing */
+    function showVideoError() {
+      var err = el("vc-error");
+      var controls = el("vc-controls");
+      var big = shell.querySelector("[data-vplay]");
+      if (err) err.hidden = false;
+      if (controls) controls.style.display = "none";
+      if (big) big.style.display = "none";
+    }
+    video.addEventListener("error", showVideoError);
+    var vSrc = video.querySelector("source");
+    if (vSrc) vSrc.addEventListener("error", showVideoError);
+
     muteBtn.addEventListener("click", function () {
       video.muted = !video.muted;
       updateVolume();
@@ -1053,6 +1113,72 @@
     toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
   }
 
+  /* ---------- theme (dark / light / system) ----------
+     Admin controls the server default (db.settings.theme). A visitor can still
+     override it for their own browser via localStorage ("pv_theme"). This is
+     applied straight after content loads (and pre-render via the inline script
+     in index.html) so there is no theme flash.                            */
+
+  var THEME_PREF_KEY = "pv_theme";
+
+  function readThemePref() {
+    try {
+      var v = localStorage.getItem(THEME_PREF_KEY);
+      if (v === "dark" || v === "light" || v === "system") return v;
+    } catch (e) {}
+    return null;
+  }
+
+  function persistThemePref(mode) {
+    try {
+      if (mode) localStorage.setItem(THEME_PREF_KEY, mode);
+      else localStorage.removeItem(THEME_PREF_KEY);
+    } catch (e) {}
+  }
+
+  function themeBase() {
+    /* server default (from admin), or dark as fallback before content loads */
+    return (C && C.settings && C.settings.theme) || "dark";
+  }
+
+  function resolveTheme() {
+    var mode = readThemePref() || themeBase();
+    var actual = mode;
+    if (mode === "system") {
+      actual = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+    }
+    return { mode: mode, actual: actual };
+  }
+
+  function applyTheme() {
+    var t = resolveTheme();
+    var doc = document.documentElement;
+    doc.setAttribute("data-theme", t.actual);
+    doc.setAttribute("data-theme-mode", t.mode);
+    var btn = el("theme-toggle");
+    var icon = el("theme-toggle-icon");
+    if (btn) {
+      btn.classList.toggle("active", t.mode !== "system");
+      btn.setAttribute("aria-label", "Theme: " + t.mode + ". Click to change");
+    }
+    if (icon) icon.setAttribute("href", t.actual === "light" ? "#i-sun" : "#i-moon");
+  }
+
+  function cycleTheme() {
+    var order = ["dark", "light", "system", "dark", "light"];
+    var cur = readThemePref() || themeBase();
+    var next = "dark";
+    for (var i = 0; i < order.length - 1; i++) {
+      if (order[i] === cur) { next = order[i + 1]; break; }
+    }
+    if (next === "system") persistThemePref(null); /* "system" == default */
+    else persistThemePref(next);
+    applyTheme();
+    var msgTxt = "Theme: " + next;
+    if (next === "system") msgTxt += " (follows device)";
+    showToast(msgTxt);
+  }
+
   /* ---------- boot ---------- */
 
   el("foot-year").textContent = new Date().getFullYear();
@@ -1083,6 +1209,9 @@
     var open = el("mobile-menu").classList.toggle("open");
     el("hamburger").classList.toggle("open", open);
   };
+  var themeBtn = el("theme-toggle");
+  if (themeBtn) themeBtn.addEventListener("click", cycleTheme);
+  window.addEventListener("matchMedia", function () { applyTheme(); });
   /* lightbox (delegated — survives re-renders) */
   document.body.addEventListener("click", function (e) {
     if (e.target.matches("[data-lightbox]")) {
@@ -1098,6 +1227,7 @@
     .then(function (r) { return r.json(); })
     .then(function (data) {
       C = data;
+      applyTheme();
       render();
     })
     .catch(function () {

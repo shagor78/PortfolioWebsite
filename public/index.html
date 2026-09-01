@@ -15,6 +15,25 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script>
+    /* Apply theme before first paint to avoid a flash. The server default theme
+       is applied by site.js after content loads; until then we honour any local
+       preference, defaulting to dark (matching the built-in design). */
+    (function () {
+      try {
+        var m = localStorage.getItem("pv_theme");
+        var mode = (m === "light" || m === "dark" || m === "system") ? m : "dark";
+        var actual = mode;
+        if (mode === "system") {
+          actual = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+        }
+        document.documentElement.setAttribute("data-theme", actual);
+        document.documentElement.setAttribute("data-theme-mode", mode);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
 </head>
 <body>
 
@@ -65,6 +84,9 @@
       <symbol id="i-full" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></symbol>
       <symbol id="i-shrink" viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></symbol>
       <symbol id="i-youtube" viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-2C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.95 2C5.12 19.5 12 19.5 12 19.5s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.29z"/><polygon fill="currentColor" stroke="none" points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.5" y1="4.5" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.5" y2="19.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.5" y1="19.5" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.5" y2="4.5"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
     </defs>
   </svg>
 
@@ -73,6 +95,9 @@
       <a href="#/" class="logo" id="brand-name">Shagor<span class="logo-dot">.</span></a>
       <ul class="nav-links" id="nav-links"></ul>
       <div class="nav-actions">
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
+          <svg class="ic"><use id="theme-toggle-icon" href="#i-moon"/></svg>
+        </button>
         <a href="#contact" class="btn btn-primary btn-sm nav-cta" id="nav-contact">Contact Me</a>
         <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
           <span></span><span></span><span></span>

@@ -242,6 +242,17 @@ function seedDB() {
       },
       order: ["hero", "experience", "projects", "about", "education", "certifications", "skills", "blog", "contact"]
     },
+    education: [],
+    navigation: [
+      { id: uid(), key: "projects", label: "Projects", url: "#/projects", icon: "", newTab: false, order: 0, enabled: true },
+      { id: uid(), key: "experience", label: "Job Experience", url: "#/experience", icon: "", newTab: false, order: 1, enabled: true },
+      { id: uid(), key: "education", label: "Education", url: "#/education", icon: "", newTab: false, order: 2, enabled: true },
+      { id: uid(), key: "about", label: "About", url: "#/about", icon: "", newTab: false, order: 3, enabled: true },
+      { id: uid(), key: "blog", label: "Blog", url: "#/blog", icon: "", newTab: false, order: 4, enabled: true }
+    ],
+    settings: {
+      theme: "dark"
+    },
     views: {
       total: 0,
       today: 0,
@@ -278,6 +289,133 @@ function cleanImages(arr) {
   return (Array.isArray(arr) ? arr : [])
     .filter((u) => typeof u === "string" && /^(\/uploads\/|https?:\/\/)/i.test(u))
     .slice(0, 24);
+}
+
+/* ---------------- Education model ----------------
+   A single, unified education collection lives at db.education.
+   Legacy data was previously stored inside db.about.education with a
+   different field shape; migrateEducation() maps it safely into the new
+   structure without losing any existing records.                               */
+
+function defaultEducation() {
+  return {
+    id: uid(),
+    level: "University",
+    institution: "",
+    degree: "",
+    subject: "",
+    department: "",
+    startYear: "",
+    endYear: "",
+    currentStudying: false,
+    gpa: "",
+    gpaScale: "",
+    cgpa: "",
+    cgpaScale: "",
+    resultType: "",
+    result: "",
+    resultScale: "",
+    showResult: false,
+    description: "",
+    location: "",
+    website: "",
+    logo: "",
+    status: "published",
+    order: 0
+  };
+}
+
+/* Convert one education object (legacy or new) into a fully-normalised record. */
+function normalizeEducation(raw, idx) {
+  const base = defaultEducation();
+  const o = raw || {};
+  const years = String(o.years || "").trim();
+  let sy = o.startYear || "", ey = o.endYear || "";
+  if (!sy && years) {
+    const mm = years.match(/(\d{4})\s*[–—-]\s*(\d{4})|(\d{4})\s*[–—-]\s*(Pr|Cur|Ong|Now|Pres)/i);
+    if (mm) { sy = mm[1] || ""; ey = mm[2] || mm[4] || (/\d{4}.*(Pr|Cur|Ong|Now|Pres)/i.test(years) ? "Present" : ""); }
+    else if (/^\d{4}$/.test(years)) sy = years;
+  }
+  const cur = o.currentStudying === true ||
+    o.currentStudying === "true" ||
+    /(pursu|current|ongoing|studying|Pr|Cur|Ong|Now|Pres)/i.test(String(o.status || ""));
+  // pick explicit gpa/cgpa first, fall back to legacy resultType/result
+  let gpa = String(o.gpa != null ? o.gpa : "").trim();
+  let cgpa = String(o.cgpa != null ? o.cgpa : "").trim();
+  let resultType = String(o.resultType || "").toLowerCase();
+  if (!gpa && !cgpa && o.result) {
+    if (resultType === "gpa") gpa = o.result;
+    else if (resultType === "cgpa") cgpa = o.result;
+  }
+  return {
+    id: o.id || base.id,
+    level: String(o.level || base.level).trim(),
+    institution: String(o.institution != null ? o.institution : "").trim(),
+    degree: String(o.degree != null ? o.degree : (o.title || "")).trim(),
+    subject: String(o.subject != null ? o.subject : "").trim(),
+    department: String(o.department != null ? o.department : "").trim(),
+    startYear: String(sy).trim(),
+    endYear: String(ey).trim(),
+    currentStudying: !!cur,
+    gpa: String(gpa).trim(),
+    gpaScale: String(o.gpaScale != null ? o.gpaScale : (o.resultType === "gpa" ? o.resultScale : "")).trim(),
+    cgpa: String(cgpa).trim(),
+    cgpaScale: String(o.cgpaScale != null ? o.cgpaScale : (o.resultType === "cgpa" ? o.resultScale : "")).trim(),
+    resultType: resultType,
+    result: String(o.result != null ? o.result : "").trim(),
+    resultScale: String(o.resultScale != null ? o.resultScale : "").trim(),
+    showResult: o.showResult !== false && (!!gpa || !!cgpa),
+    description: String(o.description != null ? o.description : "").trim(),
+    location: String(o.location != null ? o.location : "").trim(),
+    website: String(o.website != null ? o.website : "").trim(),
+    logo: String(o.logo != null ? o.logo : "").trim().slice(0, 400),
+    status: o.status === "draft" ? "draft" : "published",
+    order: Number.isInteger(o.order) ? o.order : (idx || 0)
+  };
+}
+
+function normalizeNavigation(raw, idx) {
+  const o = raw || {};
+  return {
+    id: o.id || uid(),
+    key: String(o.key || "").trim(),
+    label: String(o.label || "Menu item").trim().slice(0, 40),
+    url: String(o.url || ("#/" + (o.key || ""))).trim().slice(0, 400),
+    icon: String(o.icon || "").trim().slice(0, 80),
+    newTab: o.newTab === true,
+    order: Number.isInteger(o.order) ? o.order : (idx || 0),
+    enabled: o.enabled !== false
+  };
+}
+
+/* Validate an optional GPA/CGPA field. Returns an error string, or null if OK. */
+function scoreError(gpa, gpaScale, cgpa, cgpaScale) {
+  function bad(v, scale) {
+    if (v === undefined || v === null || String(v).trim() === "") {
+      /* value empty is fine, but a dangling scale without a value is not */
+      if (scale !== undefined && String(scale).trim() !== "" && String(v || "").trim() === "") {
+        return "GPA/CGPA scale provided without a value.";
+      }
+      return null;
+    }
+    const s = String(v).trim();
+    if (!/^\d+(\.\d+)?$/.test(s)) return "GPA/CGPA must be a number (e.g. 3.71).";
+    if (/^\d+(\.\d+)?$/.test(s) && scale !== undefined && String(scale).trim() !== "" && !/^\d+(\.\d+)?$/.test(String(scale).trim())) {
+      return "GPA/CGPA scale must be a number (e.g. 4.00).";
+    }
+    return null;
+  }
+  return bad(gpa, gpaScale) || bad(cgpa, cgpaScale);
+}
+
+/* Validate a navigation URL. Returns an error string, or null if OK. */
+function navUrlError(url) {
+  const u = String(url || "").trim();
+  if (!u) return null; // empty url is allowed (falls back to #/key)
+  if (u.startsWith("#") || u.startsWith("/") || u.startsWith("./") || u.startsWith("../")) return null;
+  if (/^https?:\/\//i.test(u)) return null;
+  if (/^mailto:/i.test(u)) return null;
+  return "Invalid navigation URL. Use a route (#/blog), anchor (#contact), or a full http(s) URL.";
 }
 
 /* ---------------- Rich text (blog) sanitizer ----------------
@@ -462,7 +600,47 @@ function init() {
   });
   (db.projects || []).forEach((p) => {
     if (p.links === undefined) { p.links = {}; migrated = true; }
+    if (p.videoEnabled === undefined) { p.videoEnabled = !!(p.video || p.videoUrl); migrated = true; }
   });
+
+  /* ---- education migration: unify into a single db.education collection ----
+     Previously education lived inside db.about.education. We keep it as the
+     single source of truth at db.education, migrating old records safely.    */
+  if (!Array.isArray(db.education)) {
+    let legacy = ((db.about && db.about.education) || []);
+    db.education = legacy.map((ed, i) => normalizeEducation(ed, i));
+    (db.education || []).forEach((ed, i) => (ed.order = i));
+    migrated = true;
+  } else {
+    db.education.forEach((ed, i) => { ed.order = i; });
+  }
+
+  /* ---- navigation migration: seed CMS nav items from the previous defaults ----
+     Preserves existing order/enabled via db.sections when available.           */
+  if (!Array.isArray(db.navigation) ) {
+    const navDefault = [
+      { key: "projects", label: "Projects", url: "#/projects" },
+      { key: "experience", label: "Job Experience", url: "#/experience" },
+      { key: "education", label: "Education", url: "#/education" },
+      { key: "about", label: "About", url: "#/about" },
+      { key: "blog", label: "Blog", url: "#/blog" }
+    ];
+    const enabled = (db.sections && db.sections.enabled) || {};
+    db.navigation = navDefault.map((n, i) =>
+      normalizeNavigation({
+        key: n.key, label: n.label, url: n.url,
+        enabled: enabled[n.key] !== false
+      }, i)
+    );
+    migrated = true;
+  } else {
+    db.navigation.forEach((n, i) => { n.order = i; n.enabled = n.enabled !== false; });
+  }
+
+  /* ---- settings / theme migration ---- */
+  if (!db.settings || typeof db.settings !== "object") { db.settings = { theme: "dark" }; migrated = true; }
+  if (!["dark", "light", "system"].includes(db.settings.theme)) { db.settings.theme = "dark"; migrated = true; }
+
   if (migrated || !fs.existsSync(DB_PATH)) saveDB();
 }
 
@@ -565,6 +743,12 @@ function publicContent() {
         likes: p.likes || 0, comments: p.comments || []
       })),
     sections: db.sections,
+    education: (db.education || [])
+      .filter((e) => e.status !== "draft")
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    navigation: (db.navigation || []).filter((n) => n.enabled !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    settings: db.settings || { theme: "dark" },
     views: db.views || { total: 0, today: 0, week: 0, month: 0 }
   };
 }
@@ -727,7 +911,7 @@ async function handleAPI(req, res, pathname) {
       messages: db.messages.length,
       unreadMessages: db.messages.filter((x) => !x.read).length,
       drafts: db.posts.filter((p) => p.status === "draft").length,
-      education: (db.about && db.about.education ? db.about.education.length : 0) + (db.education ? db.education.length : 0),
+      education: (db.education ? db.education : []).length,
       media: listMedia().length,
       images: listMedia().filter((m) => m.type === "image").length,
       videos: listMedia().filter((m) => m.type === "video").length,
@@ -748,11 +932,12 @@ async function handleAPI(req, res, pathname) {
   }
 
   if (pathname === "/api/admin/about" && method === "GET") {
-    return sendJSON(res, 200, db.about);
+    return sendJSON(res, 200, Object.assign({}, db.about, { educationHistory: db.about.education || [] }));
   }
   if (pathname === "/api/admin/about" && method === "PUT") {
     const b = await readBody(req);
-    const allowed = ["intro", "belief", "focus", "images", "lifeTitle", "lifeItems", "education", "certifications"];
+    /* note: education is managed by the dedicated /api/admin/education endpoints */
+    const allowed = ["intro", "belief", "focus", "images", "lifeTitle", "lifeItems", "certifications"];
     for (const k of allowed) if (k in b) db.about[k] = b[k];
     saveDB();
     return sendJSON(res, 200, db.about);
@@ -788,6 +973,150 @@ async function handleAPI(req, res, pathname) {
       "Content-Disposition": 'attachment; filename="portfolio-backup.json"'
     });
     return res.end(JSON.stringify(db, null, 2));
+  }
+
+  /* ----- education management ----- */
+  {
+    const base = "/api/admin/education";
+    if (pathname === base && method === "GET") {
+      return sendJSON(res, 200, (db.education || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+    }
+    if (pathname === base && method === "POST") {
+      const b = await readBody(req);
+      const scoreErr = scoreError(b.gpa, b.gpaScale, b.cgpa, b.cgpaScale);
+      if (scoreErr) return sendJSON(res, 400, { error: scoreErr });
+      if (!String(b.institution || "").trim() && !String(b.degree || "").trim()) {
+        return sendJSON(res, 400, { error: "Institution or degree is required." });
+      }
+      const item = normalizeEducation(b, db.education.length);
+      item.id = uid();
+      item.order = db.education.length;
+      item.status = b.status === "draft" ? "draft" : "published";
+      db.education.push(item);
+      logActivity("Added education: " + (String(item.degree || item.institution || "record").slice(0, 60)));
+      saveDB();
+      return sendJSON(res, 200, item);
+    }
+    if (pathname === base + "/order" && method === "PUT") {
+      const b = await readBody(req);
+      const ids = b.ids || [];
+      db.education.sort((a, c) => {
+        const ia = ids.indexOf(a.id), ib = ids.indexOf(c.id);
+        return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+      });
+      db.education.forEach((x, i) => (x.order = i));
+      saveDB();
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === base + "/reorder" && method === "PUT") {
+      const b = await readBody(req);
+      const ids = b.ids || [];
+      db.education.sort((a, c) => {
+        const ia = ids.indexOf(a.id), ib = ids.indexOf(c.id);
+        return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+      });
+      db.education.forEach((x, i) => (x.order = i));
+      saveDB();
+      return sendJSON(res, 200, { ok: true });
+    }
+    const em = pathname.match(/^\/api\/admin\/education\/([\w-]+)$/);
+    if (em) {
+      const idx = (db.education || []).findIndex((x) => x.id === em[1]);
+      if (idx === -1) return sendJSON(res, 404, { error: "Education record not found" });
+      if (method === "PUT") {
+        const patch = await readBody(req);
+        const next = Object.assign({}, db.education[idx], patch);
+        const scoreErr = scoreError(patch.gpa !== undefined ? patch.gpa : next.gpa,
+          patch.gpaScale !== undefined ? patch.gpaScale : next.gpaScale,
+          patch.cgpa !== undefined ? patch.cgpa : next.cgpa,
+          patch.cgpaScale !== undefined ? patch.cgpaScale : next.cgpaScale);
+        if (scoreErr) return sendJSON(res, 400, { error: scoreErr });
+        const merged = normalizeEducation(next, idx);
+        merged.id = db.education[idx].id;
+        if (patch.order !== undefined && Number.isInteger(patch.order)) merged.order = patch.order;
+        db.education[idx] = merged;
+        saveDB();
+        return sendJSON(res, 200, db.education[idx]);
+      }
+      if (method === "DELETE") {
+        db.education.splice(idx, 1);
+        db.education.forEach((x, i) => (x.order = i));
+        saveDB();
+        return sendJSON(res, 200, { ok: true });
+      }
+    }
+  }
+
+  /* ----- navigation / navbar management ----- */
+  {
+    const base = "/api/admin/navigation";
+    if (pathname === base && method === "GET") {
+      return sendJSON(res, 200, (db.navigation || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+    }
+    if (pathname === base && method === "POST") {
+      const b = await readBody(req);
+      const uerr = navUrlError(b.url);
+      if (uerr) return sendJSON(res, 400, { error: uerr });
+      if (!String(b.label || "").trim()) return sendJSON(res, 400, { error: "Menu label is required." });
+      const item = normalizeNavigation(b, db.navigation.length);
+      item.id = uid();
+      item.order = db.navigation.length;
+      db.navigation.push(item);
+      logActivity("Added nav item: " + (item.label || ""));
+      saveDB();
+      return sendJSON(res, 200, item);
+    }
+    if (pathname === base + "/order" && method === "PUT") {
+      const b = await readBody(req);
+      const ids = b.ids || [];
+      db.navigation.sort((a, c) => {
+        const ia = ids.indexOf(a.id), ib = ids.indexOf(c.id);
+        return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+      });
+      db.navigation.forEach((x, i) => (x.order = i));
+      saveDB();
+      return sendJSON(res, 200, { ok: true });
+    }
+    const nm = pathname.match(/^\/api\/admin\/navigation\/([\w-]+)$/);
+    if (nm) {
+      const idx = (db.navigation || []).findIndex((x) => x.id === nm[1]);
+      if (idx === -1) return sendJSON(res, 404, { error: "Navigation item not found" });
+      if (method === "PUT") {
+        const patch = await readBody(req);
+        const nextUrl = patch.url !== undefined ? patch.url : db.navigation[idx].url;
+        const uerr = navUrlError(nextUrl);
+        if (uerr) return sendJSON(res, 400, { error: uerr });
+        const merged = normalizeNavigation(Object.assign({}, db.navigation[idx], patch), idx);
+        merged.id = db.navigation[idx].id;
+        if (patch.order !== undefined && Number.isInteger(patch.order)) merged.order = patch.order;
+        db.navigation[idx] = merged;
+        db.navigation.forEach((x, i) => { x.order = i; });
+        saveDB();
+        return sendJSON(res, 200, db.navigation[idx]);
+      }
+      if (method === "DELETE") {
+        db.navigation.splice(idx, 1);
+        db.navigation.forEach((x, i) => (x.order = i));
+        saveDB();
+        return sendJSON(res, 200, { ok: true });
+      }
+    }
+  }
+
+  /* ----- settings / appearance (theme) ----- */
+  if (pathname === "/api/admin/settings" && method === "GET") {
+    return sendJSON(res, 200, db.settings || { theme: "dark" });
+  }
+  if (pathname === "/api/admin/settings" && method === "PUT") {
+    const b = await readBody(req);
+    if (!["dark", "light", "system"].includes(b.theme)) {
+      return sendJSON(res, 400, { error: "Theme must be one of: dark, light, system." });
+    }
+    db.settings = db.settings || {};
+    db.settings.theme = b.theme;
+    logActivity("Theme set to " + b.theme);
+    saveDB();
+    return sendJSON(res, 200, db.settings);
   }
 
   /* ----- generic collections: experiences, projects, posts, skills ----- */

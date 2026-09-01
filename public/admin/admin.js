@@ -1107,6 +1107,7 @@
           field("GitHub URL", 'class="pj-github" placeholder="https://github.com/…"', p.github) + "</div>" +
 
           '<div class="card" style="margin-top:18px"><h3>Demo Video &amp; Overlay</h3>' +
+            '<label style="display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted);cursor:pointer;margin-bottom:10px"><input type="checkbox" class="pj-videoenabled" ' + (p.videoEnabled ? " checked" : "") + " /> Show this video on the case-study page</label>" +
             '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4 or /uploads/…" />' +
             '<div class="form-actions" style="margin-top:10px">' +
               '<label class="btn-mini" style="cursor:pointer">Upload video from computer<input type="file" accept="video/*" class="pj-vfile" hidden /></label>' +
@@ -1194,6 +1195,7 @@
               link: $(".pj-link", panel).value,
               github: $(".pj-github", panel).value,
               videoUrl: $(".pj-vurl", panel).value.trim() || "",
+              videoEnabled: $(".pj-videoenabled", panel).checked,
               videoTitle: $(".pj-vtitle", panel).value.trim(),
               videoCaption: $(".pj-vcap", panel).value.trim(),
               videoDesc: $(".pj-vdesc", panel).value.trim(),
