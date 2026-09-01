@@ -184,7 +184,9 @@
     var useVideo = a.profileMediaType === "video" && !!(a.profileVideo);
     var media = "";
     if (useVideo) {
-      media = '<figure class="about-media" data-reveal><video src="' + esc(a.profileVideo) + '" controls playsinline preload="metadata"></video></figure>';
+      media = '<figure class="about-media" data-reveal>' + (isYouTube(a.profileVideo)
+        ? '<div class="about-media-frame"><iframe src="' + esc(youtubeEmbed(a.profileVideo)) + '" title="About video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>'
+        : '<video src="' + esc(a.profileVideo) + '" controls playsinline preload="metadata"></video>') + "</figure>";
     } else if (a.profileImage) {
       media = '<figure class="about-media" data-reveal><img src="' + esc(a.profileImage) + '" alt="' + esc(name || "Profile photo") + '" loading="lazy" /></figure>';
     }

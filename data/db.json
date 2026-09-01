@@ -339,7 +339,7 @@
       "status": "published",
       "id": "mt73dei0o8xrt0",
       "createdAt": "2026-08-24T10:27:05.256Z",
-      "updatedAt": "2026-09-01T12:35:02.176Z",
+      "updatedAt": "2026-09-01T13:23:44.343Z",
       "order": 0,
       "publishedAt": "2026-08-24T10:36:18.584Z",
       "links": {},
@@ -571,6 +571,51 @@
   ],
   "activity": [
     {
+      "id": "mtip7e5fr5srtq",
+      "text": "Uploaded image: tt-test-mtip7e5f.png",
+      "date": "2026-09-01T13:23:44.355Z"
+    },
+    {
+      "id": "mtip7e5bc3ibwh",
+      "text": "Uploaded image: tt-test-mtip7e5a.png",
+      "date": "2026-09-01T13:23:44.351Z"
+    },
+    {
+      "id": "mtip7e4r5miuxg",
+      "text": "Removed resume / CV",
+      "date": "2026-09-01T13:23:44.331Z"
+    },
+    {
+      "id": "mtip7e4jym6ca1",
+      "text": "Set external resume URL",
+      "date": "2026-09-01T13:23:44.323Z"
+    },
+    {
+      "id": "mtip7e2zniuxzi",
+      "text": "Added nav item: TT Link",
+      "date": "2026-09-01T13:23:44.267Z"
+    },
+    {
+      "id": "mtip7e2ctlykaf",
+      "text": "Added education: BSc Test",
+      "date": "2026-09-01T13:23:44.244Z"
+    },
+    {
+      "id": "mtip7e1ugl9yzf",
+      "text": "Deleted post: TT Test Post",
+      "date": "2026-09-01T13:23:44.226Z"
+    },
+    {
+      "id": "mtip7e0zelvjb0",
+      "text": "Published post: TT Test Post",
+      "date": "2026-09-01T13:23:44.195Z"
+    },
+    {
+      "id": "mtip7e0nowxe9j",
+      "text": "Saved draft: TT Test Post",
+      "date": "2026-09-01T13:23:44.183Z"
+    },
+    {
       "id": "mtingre4nr5sh7",
       "text": "Uploaded image: tt-test-mtingre3.png",
       "date": "2026-09-01T12:35:02.188Z"
@@ -724,51 +769,6 @@
       "id": "mtijck5iye92o8",
       "text": "Added nav item: TT Link",
       "date": "2026-09-01T10:39:47.718Z"
-    },
-    {
-      "id": "mtijck4ws03ckz",
-      "text": "Added education: BSc Test",
-      "date": "2026-09-01T10:39:47.696Z"
-    },
-    {
-      "id": "mtijck4evnoxr3",
-      "text": "Deleted post: TT Test Post",
-      "date": "2026-09-01T10:39:47.678Z"
-    },
-    {
-      "id": "mtijck403am4lb",
-      "text": "Published post: TT Test Post",
-      "date": "2026-09-01T10:39:47.664Z"
-    },
-    {
-      "id": "mtijck3kv9s91r",
-      "text": "Saved draft: TT Test Post",
-      "date": "2026-09-01T10:39:47.648Z"
-    },
-    {
-      "id": "mtijawj4bmr9ne",
-      "text": "Deleted post: TT Test Post",
-      "date": "2026-09-01T10:38:30.448Z"
-    },
-    {
-      "id": "mtijawi70oul10",
-      "text": "Published post: TT Test Post",
-      "date": "2026-09-01T10:38:30.415Z"
-    },
-    {
-      "id": "mtijawhrvu9lsf",
-      "text": "Saved draft: TT Test Post",
-      "date": "2026-09-01T10:38:30.399Z"
-    },
-    {
-      "id": "mtiigksrobncl3",
-      "text": "Deleted post: Persistence Test",
-      "date": "2026-09-01T10:14:55.563Z"
-    },
-    {
-      "id": "mtiigbzb91v6sr",
-      "text": "Added nav item: GitHub",
-      "date": "2026-09-01T10:14:44.135Z"
     }
   ],
   "resume": null,

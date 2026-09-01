@@ -671,25 +671,58 @@
         '<div class="form-actions"><button type="button" class="btn-primary" id="ab-save">SAVE CHANGES</button></div>';
 
       /* ---- Profile Media ---- */
+      function abUploadVideo(file) {
+        if (!file) return;
+        if (!/^video\//.test(file.type)) { toast("Only video files (MP4, WEBM, MOV) are allowed.", true); return; }
+        var status = $("#ab-vstatus");
+        if (status) status.textContent = "⬆ Uploading " + file.name + "…";
+        uploadVideo(file).then(function (url) {
+          profileVideo = url;
+          if (status) status.textContent = "✓ Uploaded " + file.name;
+          renderMedia();
+        }, function (err) {
+          if (status) status.textContent = "✕ " + (err.message || "Upload failed");
+          toast(err.message || "Upload failed", true);
+        });
+      }
       function renderMedia() {
         var useVideo = $("#ab-media-vid").checked;
         if (useVideo) {
           $("#ab-media-area").innerHTML =
             '<div class="field"><label>Video</label>' +
-              '<div id="ab-vprev">' + (profileVideo
-                ? '<video src="' + esc(profileVideo) + '" controls playsinline style="width:100%;aspect-ratio:16/9;border-radius:10px;background:#000"></video>'
-                : '<p class="hint">No video yet.</p>') + "</div>" +
-              '<div class="form-actions">' +
-                '<label class="btn-mini" style="cursor:pointer">Upload Video<input type="file" accept="video/*" id="ab-vup" hidden /></label>' +
-                (profileVideo ? '<button type="button" class="btn-danger" id="ab-vrem">Remove Video</button>' : "") +
-              "</div></div>";
-          $("#ab-vup").addEventListener("change", function () {
-            var f = $("#ab-vup").files[0];
-            $("#ab-vup").value = "";
-            if (!f) return;
-            guard($("#ab-vup"), function () {
-              return uploadVideo(f).then(function (url) { profileVideo = url; renderMedia(); });
-            }, "Uploading…");
+              '<label class="upload-zone" id="ab-vzone" style="margin-bottom:6px">' +
+                '<span class="uz-main">🎬 Drag &amp; Drop Video Here</span>' +
+                '<span class="uz-sub">or <strong>Browse Files</strong> — MP4 / WEBM / MOV</span>' +
+                '<input type="file" accept="video/*" hidden /></label>' +
+              '<p class="hint" id="ab-vstatus">' + (profileVideo ? "" : "Drop a video file or paste a Video URL below.") + "</p>" +
+              field("Video URL (optional, direct video or YouTube)", 'id="ab-vurl"',
+                /^https?:/i.test(profileVideo) && !/^\/uploads\//.test(profileVideo) ? profileVideo : "") +
+              '<div id="ab-vprev" style="margin-top:10px">' + (profileVideo
+                ? '<video src="' + esc(profileVideo) + '" controls playsinline style="width:100%;aspect-ratio:16/9;border-radius:10px;background:#000;display:block"></video>'
+                : "") + "</div>" +
+              (profileVideo ? '<div class="form-actions" style="margin-top:12px"><button type="button" class="btn-danger" id="ab-vrem">Remove Video</button></div>' : "") +
+            "</div>";
+          $("#ab-vzone").querySelector("input[type=file]").addEventListener("change", function () {
+            var file = this.files[0];
+            this.value = "";
+            abUploadVideo(file);
+          });
+          ["dragover", "dragleave", "drop"].forEach(function (ev) {
+            $("#ab-vzone").addEventListener(ev, function (e) {
+              e.preventDefault();
+              $("#ab-vzone").classList.toggle("dragover", ev === "dragover");
+              if (ev === "drop" && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                abUploadVideo(e.dataTransfer.files[0]);
+              }
+            });
+          });
+          $("#ab-vurl").addEventListener("change", function () {
+            var v = $("#ab-vurl").value.trim();
+            profileVideo = v;
+            renderMedia();
+          });
+          $("#ab-vurl").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") { e.preventDefault(); $("#ab-vurl").blur(); }
           });
           var vr = $("#ab-vrem");
           if (vr) vr.addEventListener("click", function () { profileVideo = ""; renderMedia(); });
@@ -719,37 +752,62 @@
       renderMedia();
 
       /* ---- Resume ---- */
+      function abUploadResume(file) {
+        if (!file) return;
+        if (!/\.pdf$/i.test(file.name)) { toast("Only PDF files are allowed.", true); return; }
+        if (file.size > 10 * 1024 * 1024) { toast("PDF too large (max 10MB).", true); return; }
+        var status = $("#ab-resstatus");
+        var resFile = $("#ab-resfile");
+        if (status) status.textContent = "⬆ Uploading " + file.name + "…";
+        guard(resFile, function () {
+          return fileToDataURL(file).then(function (data) {
+            return api("/api/admin/resume", "POST", { filename: file.name, data: data });
+          }).then(function (nr) {
+            res = nr;
+            $("#ab-resurl").value = "";
+            toast("✓ Resume updated");
+            renderRes();
+          }, function (err) {
+            if (status) status.textContent = "✕ " + (err.message || "Upload failed");
+          });
+        }, "Uploading…");
+      }
       function renderRes() {
-        $("#ab-res").innerHTML = res
-          ? '<div class="meta-list">' +
-              "<div>Current Resume: <b>" + esc(res.filename || res.url) + "</b></div>" +
-              '<div class="form-actions" style="margin-top:10px;margin-bottom:0">' +
+        var has = !!res;
+        $("#ab-res").innerHTML =
+          '<label class="upload-zone" id="ab-reszone" style="margin-bottom:6px">' +
+            '<span class="uz-main">📄 Drag &amp; Drop Resume Here</span>' +
+            '<span class="uz-sub">or <strong>Browse Files</strong> — PDF only</span>' +
+            '<input type="file" accept="application/pdf,.pdf" id="ab-resfile" hidden /></label>' +
+          '<p class="hint" id="ab-resstatus">' + (has
+            ? "Current Resume: <b>" + esc(res.filename || res.url) + "</b>"
+            : "Drop a resume PDF, use Browse, or paste an external URL below.") + "</p>" +
+          (has
+            ? '<div class="form-actions" style="margin-top:10px;margin-bottom:0">' +
                 '<a class="btn-mini" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(res.url) + '">View</a>' +
-                '<label class="btn-mini" style="cursor:pointer">Replace<input type="file" accept="application/pdf,.pdf" id="ab-resfile" hidden /></label>' +
                 '<button type="button" class="btn-danger" id="ab-resrem">Remove</button>' +
-              "</div></div>"
-          : '<p class="hint">No resume yet — upload a PDF below or paste an external URL.</p>';
-        if (!res) return;
-        $("#ab-resfile").addEventListener("change", function () {
-          var f = $("#ab-resfile").files[0];
-          $("#ab-resfile").value = "";
-          if (!f) return;
-          if (!/\.pdf$/i.test(f.name)) return toast("Only PDF files are allowed.", true);
-          if (f.size > 10 * 1024 * 1024) return toast("PDF too large (max 10MB).", true);
-          guard($("#ab-resfile"), function () {
-            return fileToDataURL(f).then(function (data) {
-              return api("/api/admin/resume", "POST", { filename: f.name, data: data });
-            }).then(function (nr) {
-              res = nr;
-              $("#ab-resurl").value = "";
-              toast("✓ Resume updated");
-              renderRes();
-            });
-          }, "Uploading…");
+              "</div>"
+            : "");
+        var resZone = $("#ab-reszone");
+        ["dragover", "dragleave", "drop"].forEach(function (ev) {
+          resZone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            resZone.classList.toggle("dragover", ev === "dragover");
+            if (ev === "drop" && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+              abUploadResume(e.dataTransfer.files[0]);
+            }
+          });
         });
-        $("#ab-resrem").addEventListener("click", function () {
+        var rf = $("#ab-resfile");
+        rf.addEventListener("change", function () {
+          var file = rf.files[0];
+          rf.value = "";
+          abUploadResume(file);
+        });
+        var rr = $("#ab-resrem");
+        if (rr) rr.addEventListener("click", function () {
           if (!confirm("Remove the active resume from the website?")) return;
-          guard($("#ab-resrem"), function () {
+          guard(rr, function () {
             return api("/api/admin/resume", "DELETE").then(function () {
               res = null;
               toast("Resume removed");
