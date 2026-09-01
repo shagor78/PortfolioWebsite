@@ -284,6 +284,18 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+function slugify(title, existing) {
+  existing = existing || [];
+  let base = String(title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "post";
+  let slug = base, i = 2;
+  while (existing.indexOf(slug) !== -1) slug = base + "-" + i++;
+  return slug;
+}
+
 /* keep only permanent image references (never blob:/data: browser temporaries) */
 function cleanImages(arr) {
   return (Array.isArray(arr) ? arr : [])
@@ -302,7 +314,9 @@ function defaultEducation() {
     id: uid(),
     level: "University",
     institution: "",
+    institutionType: "",
     degree: "",
+    program: "",
     subject: "",
     department: "",
     startYear: "",
@@ -351,7 +365,9 @@ function normalizeEducation(raw, idx) {
     id: o.id || base.id,
     level: String(o.level || base.level).trim(),
     institution: String(o.institution != null ? o.institution : "").trim(),
+    institutionType: String(o.institutionType != null ? o.institutionType : "").trim(),
     degree: String(o.degree != null ? o.degree : (o.title || "")).trim(),
+    program: String(o.program != null ? o.program : "").trim(),
     subject: String(o.subject != null ? o.subject : "").trim(),
     department: String(o.department != null ? o.department : "").trim(),
     startYear: String(sy).trim(),
@@ -432,22 +448,34 @@ const BLOCK_LEVEL = new Set(["p", "pre", "blockquote", "ul", "ol", "h1", "h2", "
 function sanitizeHTML(html) {
   if (html == null) return "";
   let src = String(html);
-  /* strip everything that is not tag/text — prevents stray attributes being parsed */
-  /* First remove script/style blocks entirely */
+  /* strip script/style blocks entirely */
   src = src.replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, "");
   src = src.replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, "");
+  /* normalize &nbsp; to regular space */
+  src = src.replace(/&nbsp;/gi, " ");
+  /* strip editor-specific attributes like class="isSelectedEnd", data-*, style on non-allowed tags */
+  src = src.replace(/\s+class="[^"]*isSelectedEnd[^"]*"/gi, "");
+  src = src.replace(/\s+data-[a-z-]+="[^"]*"/gi, "");
+  src = src.replace(/\s+contenteditable="[^"]*"/gi, "");
   const out = [];
-  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
-  const textRe = /[^<>]+/g;
-  let pos = 0;
+  /* single pass — match either a tag, a run of text, or a stray angle bracket.
+     (The previous /[^<>]+/ loop matched tag *names* as text, silently dropping
+      the "<"/">" of every tag. Matching tags explicitly fixes that.) */
+  const re = /(<\/?[a-zA-Z][^>]*>)|([^<>]+)|([<>])/g;
   let m;
-  while ((m = textRe.exec(src))) {
-    if (m.index > pos) stripTag(src.slice(pos, m.index), out);
-    out.push(escapeText(m[0]));
-    pos = m.index + m[0].length;
+  while ((m = re.exec(src))) {
+    if (m[1]) stripTag(m[1], out);
+    else if (m[2]) out.push(escapeText(m[2]));
+    else if (m[3]) out.push(" ");
   }
-  if (pos < src.length) stripTag(src.slice(pos), out);
-  return out.join("");
+  let result = out.join("");
+  /* collapse multiple spaces but preserve single spaces */
+  result = result.replace(/ {2,}/g, " ");
+  /* strip leading/trailing whitespace in paragraphs */
+  result = result.replace(/<p>\s+<\/p>/gi, "");
+  /* strip empty paragraphs */
+  result = result.replace(/<p><\/p>/gi, "");
+  return result.trim();
 }
 
 function stripTag(raw, out) {
@@ -462,7 +490,9 @@ function stripTag(raw, out) {
       const href = (attrs.href || "").trim();
       const safeHref = /^(https?:)?\/\/|^mailto:|^#|^\/|^\.?\//i.test(href) && !/javascript:/i.test(href) ? href : null;
       if (!safeHref) { out.push("<a>"); continue; }
-      out.push('<a href="' + escapeAttr(safeHref) + '"' + (attrs.target ? ' target="' + escapeAttr(attrs.target) + '"' : "") + ' rel="noopener nofollow" target="_blank">');
+      /* emit exactly one target/rel so re-sanitizing is stable (idempotent) */
+      const target = attrs.target === "_blank" ? ' target="_blank"' : ' target="_blank"';
+      out.push('<a href="' + escapeAttr(safeHref) + '"' + target + ' rel="noopener nofollow">');
       continue;
     }
     if (tag === "span" || tag === "div" || tag === "p") {
@@ -485,7 +515,23 @@ function parseAttrs(str) {
 }
 
 function escapeText(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  /* Idempotent text escaping: first decode any already-encoded entities back to
+     their literal characters, then re-encode exactly once. This guarantees the
+     output is stable no matter how many times sanitizeHTML runs (e.g. on each
+     editor save or server restart), preventing "&amp;amp;" style corruption. */
+  return String(s)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&thinsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/'/g, "&#39;")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 function escapeAttr(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -566,6 +612,12 @@ function init() {
     if (!p.createdAt) { p.createdAt = nowIso; migrated = true; }
     if (!p.updatedAt) { p.updatedAt = nowIso; migrated = true; }
     if (p.publishedAt === undefined) { p.publishedAt = p.status === "published" ? nowIso : null; migrated = true; }
+    if (!p.slug && p.title) { p.slug = slugify(p.title, db.posts.filter((x) => x !== p && x.slug)); migrated = true; }
+    /* re-sanitize existing content so editor markup / class artifacts never leak to visitors */
+    if (p.text !== undefined) {
+      const clean = sanitizeHTML(p.text);
+      if (clean !== p.text) { p.text = clean; migrated = true; }
+    }
   });
   (db.projects || []).forEach((p) => {
     const cleaned = cleanImages(p.images);
@@ -738,7 +790,7 @@ function publicContent() {
       .filter((p) => p.status === "published")
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
       .map((p) => ({
-        id: p.id, title: p.title, text: p.text, location: p.location, date: p.date,
+        id: p.id, slug: p.slug, title: p.title, text: p.text, location: p.location, date: p.date,
         category: p.category, tags: p.tags || [], images: p.images || [],
         likes: p.likes || 0, comments: p.comments || []
       })),
@@ -937,7 +989,10 @@ async function handleAPI(req, res, pathname) {
   if (pathname === "/api/admin/about" && method === "PUT") {
     const b = await readBody(req);
     /* note: education is managed by the dedicated /api/admin/education endpoints */
-    const allowed = ["intro", "belief", "focus", "images", "lifeTitle", "lifeItems", "certifications"];
+    const allowed = ["intro", "belief", "focus", "images", "lifeTitle", "lifeItems", "certifications",
+      "name", "title", "headline", "shortDescription", "description", "detailedDescription",
+      "careerSummary", "location", "availability", "experienceSummary", "yearsOfExperience",
+      "profileImage", "videoUrl", "videoTitle", "videoDescription", "videoEnabled", "videoThumbnail"];
     for (const k of allowed) if (k in b) db.about[k] = b[k];
     saveDB();
     return sendJSON(res, 200, db.about);
@@ -1141,6 +1196,7 @@ async function handleAPI(req, res, pathname) {
         }
         item.likes = 0;
         item.comments = [];
+        item.slug = slugify(item.title, db.posts.map((x) => x.slug));
         if (!item.date) item.date = nowIso.slice(0, 10);
         item.createdAt = nowIso;
         item.updatedAt = nowIso;
@@ -1188,6 +1244,11 @@ async function handleAPI(req, res, pathname) {
         if (col === "posts") {
           if (patch.images !== undefined) patch.images = cleanImages(patch.images);
           if (patch.text !== undefined) patch.text = sanitizeHTML(patch.text);
+          if (patch.title !== undefined && String(patch.title).trim()) {
+            if (patch.slug === undefined || patch.slug === "") {
+              patch.slug = slugify(patch.title, db.posts.filter((x) => x.id !== current.id).map((x) => x.slug));
+            }
+          }
           const wasPublished = current.status === "published";
           const wantsPublish = patch.status === "published";
           const titleAfter = String(patch.title !== undefined ? patch.title : current.title || "").trim();

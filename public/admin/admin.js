@@ -257,6 +257,15 @@
     };
   }
 
+  /* YouTube detection + embed for previewing video URLs */
+  function isYouTubeUrl(u) {
+    return /(^|\.)youtube\.com|youtu\.be/i.test(u || "");
+  }
+  function youtubeEmbed(u) {
+    var m = String(u || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,20})/i);
+    return m ? "https://www.youtube.com/embed/" + m[1] + "?rel=0" : "";
+  }
+
   /* Upload a single video to the media library — returns permanent URL */
   function uploadVideo(file) {
     if (!/^video\//.test(file.type)) return Promise.reject(new Error("Only video files (MP4, WEBM, MOV) are allowed."));
@@ -486,11 +495,15 @@
       return '<img src="' + esc(u) + '" alt="" />';
     }).join("") + "</div>";
     var tags = (p.tags || []).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
+    var body = p.text || "";
+    if (body && !/<[a-z][\s\S]*>/i.test(body)) {
+      body = "<p>" + esc(body).replace(/\n/g, "<br />") + "</p>";
+    }
     return '<article class="pv-post">' +
       (p.category ? '<span class="pv-cat">' + esc(p.category) + "</span>" : "") +
       '<h3 class="pv-title">' + esc(p.title || "Untitled post") + "</h3>" +
       '<div class="pv-meta">Md. Shagor Islam · ' + esc(fmtDate(p.date)) + (p.location ? " · 📍 " + esc(p.location) : "") + "</div>" +
-      '<p class="pv-text">' + esc(p.text || "") + "</p>" + gallery +
+      '<div class="pv-text">' + body + "</div>" + gallery +
       (tags ? '<div class="pv-tags">' + tags + "</div>" : "") +
       "</article>";
   }
@@ -517,8 +530,8 @@
           stat(s.messages + (s.unreadMessages ? ' <small style="color:var(--red)">(' + s.unreadMessages + " new)</small>" : ""), "Messages") +
         "</div>" +
         '<div class="stat-grid">' +
-          stat(s.views != null ? s.views : "—", "Total Views") +
-          stat(s.visitors != null ? s.visitors : "—", "Unique Visitors") +
+          stat(s.views != null ? (typeof s.views === "object" ? Number(s.views.total || 0).toLocaleString() : Number(s.views || 0).toLocaleString()) : "—", "Total Views") +
+          stat(s.visitors != null ? Number(s.visitors || 0).toLocaleString() : "—", "Unique Visitors") +
           stat(s.education != null ? s.education : (s.about && s.about.education ? s.about.education.length : "—"), "Education") +
           stat(s.media != null ? s.media : "—", "Media Files") +
           stat(s.images != null ? s.images : "—", "Images") +
@@ -626,6 +639,42 @@
   register("about", "About Section", function (content) {
     return api("/api/admin/about").then(function (a) {
       content.innerHTML =
+        '<div class="card"><h3>Person &amp; Profile</h3>' +
+          '<div class="field"><label>Profile image</label><div class="img-thumbs" id="ab-pimg"></div>' +
+            '<div class="form-actions">' +
+              '<button type="button" class="btn-mini" id="ab-addpimg">Choose image</button>' +
+              '<label class="btn-mini" style="cursor:pointer">Upload from computer<input type="file" accept="image/*" id="ab-pimgupload" style="display:none" /></label>' +
+            '</div></div>' +
+          field("Full name", 'id="ab-name"', a.name) +
+          field("Title / role", 'id="ab-title"', a.title) +
+          field("Headline (short tagline)", 'id="ab-headline"', a.headline) +
+          field("Location / timezone", 'id="ab-location"', a.location) +
+          field("Availability / status", 'id="ab-avail"', a.availability) +
+          '<div class="grid-2">' +
+            field("Years of experience", 'id="ab-expyrs"', a.yearsOfExperience) +
+            field("Experience summary (short line)", 'id="ab-expsum"', a.experienceSummary) +
+          '</div>' +
+          textareaField("Short description", 'id="ab-shortdesc" rows="3"', a.shortDescription) +
+          textareaField("Detailed description", 'id="ab-desc" rows="6"', a.description || a.detailedDescription) +
+          textareaField("Career summary", 'id="ab-career" rows="5"', a.careerSummary) +
+        '</div>' +
+        '<div class="card"><h3>Personal introduction video</h3>' +
+          '<label style="display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted);margin-bottom:12px;cursor:pointer">' +
+            '<input type="checkbox" id="ab-videoen"' + (a.videoEnabled ? " checked" : "") + ' /> Show my introduction video on the About section</label>' +
+          field("Video URL (direct .mp4/.webm/.mov, or YouTube)", 'id="ab-vurl"', a.videoUrl) +
+          '<div class="form-actions">' +
+            '<label class="btn-mini" style="cursor:pointer">⬆ Upload video<input type="file" accept="video/*" id="ab-vupload" style="display:none" /></label>' +
+            '<button type="button" class="btn-mini" id="ab-vclear">Remove video</button>' +
+          '</div>' +
+          '<div id="ab-vprev" style="margin-top:10px"></div>' +
+          '<div class="grid-2" style="margin-top:12px">' +
+            field("Video title", 'id="ab-vtitle"', a.videoTitle) +
+            field("Video poster (thumbnail URL)", 'id="ab-vposter"', a.videoThumbnail) +
+          '</div>' +
+          '<div class="field"><label>Thumbnail image</label><div class="img-thumbs" id="ab-vthumb"></div>' +
+            '<div class="form-actions"><button type="button" class="btn-mini" id="ab-addvthumb">Choose image</button></div></div>' +
+          textareaField("Video description", 'id="ab-vdesc" rows="2"', a.videoDescription) +
+        '</div>' +
         '<div class="card"><h3>Introduction paragraphs</h3><div id="ab-paras"></div>' +
           '<button type="button" class="btn-mini" id="ab-addpara">＋ Add Paragraph</button></div>' +
         '<div class="card"><h3>Belief &amp; Focus</h3>' +
@@ -755,6 +804,57 @@
         openPicker(true, function (urls) { aImgs = aImgs.concat(urls); rImgs(); });
       });
 
+      /* profile image */
+      var pImgs = a.profileImage ? [a.profileImage] : [];
+      var pImgRoot = $("#ab-pimg");
+      function rPImgs() { pImgRoot.innerHTML = thumbsHTML(pImgs); bindThumbRemove(pImgRoot, function () { return pImgs; }, rPImgs); }
+      rPImgs();
+      $("#ab-addpimg").addEventListener("click", function () {
+        openPicker(false, function (urls) { pImgs = [urls[0]]; rPImgs(); });
+      });
+      $("#ab-pimgupload").addEventListener("change", function () {
+        var f = $("#ab-pimgupload").files[0];
+        if (!f) return;
+        guard($("#ab-pimgupload"), function () {
+          return uploadSingle(f).then(function (url) { pImgs = [url]; rPImgs(); $("#ab-pimgupload").value = ""; });
+        }, "Uploading…");
+      });
+
+      /* about video */
+      function showVidPrev() {
+        var url = $("#ab-vurl").value.trim();
+        $("#ab-vprev").innerHTML = url ? (isYouTubeUrl(url)
+          ? '<iframe src="' + esc(youtubeEmbed(url)) + '" title="Video preview" style="width:100%;aspect-ratio:16/9;border-radius:10px;border:0" allowfullscreen></iframe>'
+          : '<video src="' + esc(url) + '" controls playsinline style="max-width:100%;max-height:260px;border-radius:10px;background:#000"></video>') : "";
+        $("#ab-vclear").disabled = !url;
+      }
+      showVidPrev();
+      $("#ab-vurl").addEventListener("input", showVidPrev);
+      $("#ab-vupload").addEventListener("change", function () {
+        var f = $("#ab-vupload").files[0];
+        if (!f) return;
+        guard($("#ab-vupload"), function () {
+          return uploadVideo(f).then(function (info) {
+            $("#ab-vurl").value = info.url; showVidPrev(); $("#ab-vupload").value = "";
+          });
+        }, "Uploading…");
+      });
+      $("#ab-vclear").addEventListener("click", function () { $("#ab-vurl").value = ""; showVidPrev(); });
+
+      /* about video thumbnail */
+      var vThumbs = a.videoThumbnail ? [a.videoThumbnail] : [];
+      var vThumbRoot = $("#ab-vthumb");
+      function rVThumbs() { vThumbRoot.innerHTML = thumbsHTML(vThumbs); bindThumbRemove(vThumbRoot, function () { return vThumbs; }, rVThumbs); }
+      rVThumbs();
+      $("#ab-addvthumb").addEventListener("click", function () {
+        openPicker(false, function (urls) { vThumbs = [urls[0]]; $("#ab-vposter").value = urls[0]; rVThumbs(); });
+      });
+      $("#ab-vposter").addEventListener("input", function () {
+        var v = $("#ab-vposter").value.trim();
+        vThumbs = v ? [v] : [];
+        rVThumbs();
+      });
+
       /* save all */
       $("#ab-save").addEventListener("click", function () {
         guard($("#ab-save"), function () {
@@ -794,6 +894,22 @@
             return { name: $('[data-ct-n="' + i + '"]').value, code: $('[data-ct-c="' + i + '"]').value, type: $('[data-ct-t="' + i + '"]').value };
           }).filter(function (x) { return x.name; });
           return api("/api/admin/about", "PUT", {
+            name: $("#ab-name").value, title: $("#ab-title").value,
+            headline: $("#ab-headline").value,
+            shortDescription: $("#ab-shortdesc").value,
+            description: $("#ab-desc").value,
+            detailedDescription: $("#ab-desc").value,
+            careerSummary: $("#ab-career").value,
+            location: $("#ab-location").value,
+            availability: $("#ab-avail").value,
+            yearsOfExperience: $("#ab-expyrs").value,
+            experienceSummary: $("#ab-expsum").value,
+            profileImage: pImgs[0] || "",
+            videoEnabled: $("#ab-videoen").checked,
+            videoUrl: $("#ab-vurl").value.trim(),
+            videoTitle: $("#ab-vtitle").value,
+            videoDescription: $("#ab-vdesc").value,
+            videoThumbnail: $("#ab-vposter").value.trim(),
             intro: p2, belief: $("#ab-belief").value, focus: $("#ab-focus").value,
             lifeTitle: $("#ab-lifetitle").value, lifeItems: l2,
             education: e2, certifications: c2, images: aImgs
@@ -1108,12 +1224,16 @@
 
           '<div class="card" style="margin-top:18px"><h3>Demo Video &amp; Overlay</h3>' +
             '<label style="display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted);cursor:pointer;margin-bottom:10px"><input type="checkbox" class="pj-videoenabled" ' + (p.videoEnabled ? " checked" : "") + " /> Show this video on the case-study page</label>" +
-            '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4 or /uploads/…" />' +
+            '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4, /uploads/…, or a YouTube link" />' +
+            '<label class="upload-zone pj-zone" style="margin-top:10px">' +
+              '<input type="file" accept="video/*" class="pj-vfile" hidden />' +
+              '<span class="uz-main">＋ Drag &amp; drop video here</span>' +
+              '<span class="uz-sub">or click to browse — MP4 · WEBM · MOV, max 256MB</span>' +
+            '</label>' +
             '<div class="form-actions" style="margin-top:10px">' +
-              '<label class="btn-mini" style="cursor:pointer">Upload video from computer<input type="file" accept="video/*" class="pj-vfile" hidden /></label>' +
               '<button type="button" class="btn-mini pj-vclear">Remove video</button>' +
               '<span id="pj-vstatus" class="hint" style="margin:0"></span></div>' +
-            '<p class="hint">Max 256MB — MP4, WEBM or MOV. Uploads to your media library.</p></div>' +
+            '<p class="hint">Uploads keep a permanent copy in your media library; YouTube links are embedded automatically.</p></div>' +
             '<div class="pd-video-preview" id="pj-vprev">' + (p.videoUrl || p.video
               ? '<video src="' + esc(p.videoUrl || p.video) + '" controls style="width:100%;max-height:240px;border-radius:10px;background:#000"></video>'
               : "") + "</div>" +
@@ -1156,12 +1276,12 @@
         function showVid() {
           var v = $(".pj-vurl", panel).value.trim();
           vprev.innerHTML = v
-            ? '<video src="' + esc(v) + '" controls style="width:100%;max-height:240px;border-radius:10px;background:#000"></video>'
+            ? isYouTubeUrl(v)
+              ? '<iframe src="' + esc(youtubeEmbed(v)) + '" title="Video preview" style="width:100%;aspect-ratio:16/9;border-radius:10px;border:0" allowfullscreen></iframe>'
+              : '<video src="' + esc(v) + '" controls style="width:100%;max-height:240px;border-radius:10px;background:#000"></video>'
             : "";
         }
-        $(".pj-vfile", panel).addEventListener("change", function () {
-          var file = this.files[0];
-          this.value = "";
+        function pjUpload(file) {
           if (!file) return;
           vstatus.textContent = "Uploading video…";
           uploadVideo(file).then(function (item) {
@@ -1169,6 +1289,18 @@
             vstatus.textContent = "✓ Uploaded " + item.name;
             showVid();
           }).catch(function (err) { vstatus.textContent = "✕ " + (err.message || "Upload failed"); });
+        }
+        $(".pj-vfile", panel).addEventListener("change", function () {
+          var file = this.files[0];
+          this.value = "";
+          pjUpload(file);
+        });
+        ["dragover", "dragleave", "drop"].forEach(function (ev) {
+          $(".pj-zone", panel).addEventListener(ev, function (e) {
+            e.preventDefault();
+            $(".pj-zone", panel).classList.toggle("dragover", ev === "dragover");
+            if (ev === "drop") pjUpload(e.dataTransfer.files[0]);
+          });
         });
         $(".pj-vclear", panel).addEventListener("click", function () {
           $(".pj-vurl", panel).value = ""; vstatus.textContent = ""; showVid();
@@ -1855,6 +1987,302 @@
             location: $("#ct-location").value.trim(),
             socials: s2
           }).then(function () { toast("✓ Contact information saved"); });
+        }, "Saving…");
+      });
+    });
+  });
+
+  /* ---------- EDUCATION ---------- */
+  register("education", "Education", function (content) {
+    return api("/api/admin/education").then(function (list) {
+      content.innerHTML =
+        '<div class="form-actions" style="margin-bottom:18px"><button type="button" class="btn-primary" id="edu-add">＋ Add Education</button></div>' +
+        '<p class="hint" style="margin-bottom:14px">Drag ⠿ or use arrows to reorder. Entries marked <b>Hidden</b> do not appear on the site.</p>' +
+        '<div id="edu-list"></div>';
+      var listEl = $("#edu-list");
+
+      function renderList() {
+        listEl.innerHTML = list.map(function (e) {
+          var ongoing = e.currentStudying || /pursu|current|ongoing|studying/i.test(e.status || "");
+          return '<div class="dd-item" data-id="' + e.id + '">' +
+            '<div class="row-item"><span class="drag-handle">⠿</span>' +
+              '<div class="row-main"><div class="row-title">' + esc(e.degree || e.institution || "Untitled") +
+                (e.level ? ' <span class="badge pub"><i></i>' + esc(e.level) + "</span>" : "") +
+                (e.status === "draft" ? ' <span class="badge draft"><i></i>Hidden</span>' : "") +
+              '</div><div class="row-sub">' + esc(e.institution || "") + (e.startYear ? " · " + esc(e.startYear) + " – " + esc(ongoing ? "Present" : (e.endYear || "")) : "") + (e.cgpa ? " · CGPA: " + esc(e.cgpa) : "") + (e.gpa ? " · GPA: " + esc(e.gpa) : "") + "</div></div>" +
+              '<div class="row-actions">' +
+                '<button type="button" class="btn-mini" data-edit="' + e.id + '">Edit</button>' +
+                '<button type="button" class="btn-mini" data-vis="' + e.id + '">' + (e.status === "draft" ? "Show" : "Hide") + "</button>" +
+                '<button type="button" class="btn-mini" data-up="' + e.id + '">↑</button>' +
+                '<button type="button" class="btn-mini" data-down="' + e.id + '">↓</button>' +
+                '<button type="button" class="btn-danger" data-del="' + e.id + '">Delete</button>' +
+              "</div></div>" +
+            '<div class="editor-panel hidden" data-editor="' + e.id + '"></div>' +
+          "</div>";
+        }).join("") || '<p class="empty-note">No education entries yet. Add your first one.</p>';
+
+        makeSortable(listEl, "education");
+
+        $$("[data-del]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () {
+            if (!confirm("Delete this education entry?")) return;
+            guard(b, function () {
+              return api("/api/admin/education/" + b.dataset.del, "DELETE")
+                .then(function () { toast("✓ Deleted successfully"); route(); });
+            }, "Deleting…");
+          });
+        });
+        $$("[data-vis]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () {
+            var e = find(b.dataset.vis);
+            guard(b, function () {
+              return api("/api/admin/education/" + e.id, "PUT", { status: e.status === "draft" ? "published" : "draft" })
+                .then(route);
+            }, "Saving…");
+          });
+        });
+        $$("[data-edit]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () { openEditor(find(b.dataset.edit), b.closest(".dd-item")); });
+        });
+        function find(id) { return list.filter(function (x) { return x.id === id; })[0]; }
+      }
+
+      function openEditor(e, wrap) {
+        var panel = $("[data-editor]", wrap);
+        var isOpen = !panel.classList.contains("hidden");
+        $$(".editor-panel").forEach(function (p) { p.classList.add("hidden"); p.innerHTML = ""; });
+        if (isOpen) return;
+        panel.innerHTML =
+          '<div class="grid-2">' +
+            field("Degree / Program", 'class="ed-deg"', e.degree) +
+            field("Institution", 'class="ed-inst"', e.institution) +
+          "</div>" +
+          '<div class="grid-2">' +
+            '<div class="field"><label>Level</label><select class="ed-level">' +
+              ["", "SSC", "Diploma", "BSc", "MSc", "PhD", "Certificate", "Other"].map(function (o) {
+                return "<option" + (o === (e.level || "") ? " selected" : "") + ">" + (o || "— Select —") + "</option>";
+              }).join("") +
+            '</select></div>' +
+            '<div class="field"><label>Institution Type</label><select class="ed-insttype">' +
+              ["", "School", "College", "Polytechnic Institute", "University", "Other"].map(function (o) {
+                return "<option" + (o === (e.institutionType || "") ? " selected" : "") + ">" + (o || "— Select —") + "</option>";
+              }).join("") +
+            '</select></div>' +
+          "</div>" +
+          '<div class="grid-2">' +
+            field("Department", 'class="ed-dept"', e.department) +
+            field("Subject / Major", 'class="ed-subj"', e.subject) +
+          "</div>" +
+          '<div class="grid-2">' +
+            field("Start Year", 'class="ed-sy" placeholder="e.g. 2018"', e.startYear) +
+            field("End Year", 'class="ed-ey" placeholder="e.g. 2022"', e.endYear) +
+          "</div>" +
+          '<label class="check-row"><input type="checkbox" class="ed-cur"' + (e.currentStudying ? " checked" : "") + " /> Currently Studying</label>" +
+          '<div class="grid-2" style="margin-top:10px">' +
+            field("CGPA", 'class="ed-cgpa" placeholder="e.g. 3.71"', e.cgpa) +
+            field("CGPA Scale", 'class="ed-cgpa-scale" placeholder="e.g. 4.00"', e.cgpaScale) +
+          "</div>" +
+          '<div class="grid-2">' +
+            field("GPA", 'class="ed-gpa" placeholder="e.g. 3.50"', e.gpa) +
+            field("GPA Scale", 'class="ed-gpa-scale" placeholder="e.g. 4.00"', e.gpaScale) +
+          "</div>" +
+          field("Location", 'class="ed-loc"', e.location) +
+          field("Website", 'class="ed-web" placeholder="https://…"', e.website) +
+          textareaField("Description", 'class="ed-desc" rows="3"', e.description) +
+          '<div class="field"><label>Institution Logo</label><div class="img-thumbs ed-logo">' + (e.logo ? thumbsHTML([e.logo]) : "") + "</div>" +
+          '<div class="form-actions"><button type="button" class="btn-mini ed-logopick">Choose Image</button>' +
+          '<button type="button" class="btn-mini ed-logoclear">Remove</button></div></div>' +
+          '<label class="check-row"><input type="checkbox" class="ed-showres"' + (e.showResult !== false ? " checked" : "") + " /> Show result on site</label>" +
+          '<div class="form-actions"><button type="button" class="btn-primary ed-save">Save Entry</button>' +
+          '<button type="button" class="btn-ghost ed-cancel">Cancel</button></div>';
+
+        var logo = e.logo || "";
+        bindThumbRemove($(".ed-logo", panel), function () { return [logo]; }, function () {
+          $(".ed-logo", panel).innerHTML = logo ? thumbsHTML([logo]) : "";
+        });
+        $(".ed-logopick", panel).addEventListener("click", function () {
+          openPicker(false, function (u) { logo = u; $(".ed-logo", panel).innerHTML = thumbsHTML([u]); });
+        });
+        $(".ed-logoclear", panel).addEventListener("click", function () { logo = ""; $(".ed-logo", panel).innerHTML = ""; });
+
+        var curCb = $(".ed-cur", panel);
+        curCb.addEventListener("change", function () {
+          $(".ed-ey", panel).disabled = curCb.checked;
+          if (curCb.checked) $(".ed-ey", panel).value = "";
+        });
+
+        $(".ed-cancel", panel).addEventListener("click", function () { panel.classList.add("hidden"); panel.innerHTML = ""; });
+        $(".ed-save", panel).addEventListener("click", function () {
+          var btn = this;
+          var patch = {
+            degree: $(".ed-deg", panel).value,
+            institution: $(".ed-inst", panel).value,
+            level: $(".ed-level", panel).value,
+            institutionType: $(".ed-insttype", panel).value,
+            department: $(".ed-dept", panel).value,
+            subject: $(".ed-subj", panel).value,
+            startYear: $(".ed-sy", panel).value.trim(),
+            endYear: $(".ed-ey", panel).value.trim(),
+            currentStudying: curCb.checked,
+            cgpa: $(".ed-cgpa", panel).value.trim(),
+            cgpaScale: $(".ed-cgpa-scale", panel).value.trim(),
+            gpa: $(".ed-gpa", panel).value.trim(),
+            gpaScale: $(".ed-gpa-scale", panel).value.trim(),
+            location: $(".ed-loc", panel).value.trim(),
+            website: $(".ed-web", panel).value.trim(),
+            description: $(".ed-desc", panel).value.trim(),
+            logo: logo,
+            showResult: $(".ed-showres", panel).checked,
+            status: e.status || "published"
+          };
+          if (curCb.checked) { patch.endYear = ""; }
+          guard(btn, function () {
+            return api("/api/admin/education/" + e.id, "PUT", patch)
+              .then(function () { toast("✓ Saved successfully"); route(); });
+          });
+        });
+        panel.classList.remove("hidden");
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      $("#edu-add").addEventListener("click", function () {
+        guard($("#edu-add"), function () {
+          return api("/api/admin/education", "POST", {
+            level: "University", institution: "", degree: "", subject: "", department: "",
+            startYear: "", endYear: "", currentStudying: false, gpa: "", gpaScale: "",
+            cgpa: "", cgpaScale: "", description: "", location: "", website: "",
+            logo: "", showResult: true, status: "published"
+          }).then(route);
+        }, "Adding…");
+      });
+
+      renderList();
+    });
+  });
+
+  /* ---------- NAVIGATION ---------- */
+  register("navigation", "Navigation", function (content) {
+    return api("/api/admin/navigation").then(function (list) {
+      content.innerHTML =
+        '<div class="form-actions" style="margin-bottom:18px"><button type="button" class="btn-primary" id="nav-add">＋ Add Navigation Item</button></div>' +
+        '<p class="hint" style="margin-bottom:14px">Drag ⠿ or use arrows to reorder. Disabled items are hidden from the public site.</p>' +
+        '<div id="nav-list"></div>';
+      var listEl = $("#nav-list");
+
+      function renderList() {
+        listEl.innerHTML = list.map(function (n) {
+          return '<div class="dd-item" data-id="' + n.id + '">' +
+            '<div class="row-item"><span class="drag-handle">⠿</span>' +
+              '<div class="row-main"><div class="row-title">' + esc(n.label || "Untitled") +
+                (n.enabled === false ? ' <span class="badge draft"><i></i>Disabled</span>' : "") +
+              '</div><div class="row-sub">' + esc(n.url || "#/" + n.key) + (n.newTab ? " · opens in new tab" : "") + "</div></div>" +
+              '<div class="row-actions">' +
+                '<button type="button" class="btn-mini" data-edit="' + n.id + '">Edit</button>' +
+                '<button type="button" class="btn-mini" data-vis="' + n.id + '">' + (n.enabled === false ? "Enable" : "Disable") + "</button>" +
+                '<button type="button" class="btn-mini" data-up="' + n.id + '">↑</button>' +
+                '<button type="button" class="btn-mini" data-down="' + n.id + '">↓</button>' +
+                '<button type="button" class="btn-danger" data-del="' + n.id + '">Delete</button>' +
+              "</div></div>" +
+            '<div class="editor-panel hidden" data-editor="' + n.id + '"></div>' +
+          "</div>";
+        }).join("") || '<p class="empty-note">No navigation items yet.</p>';
+
+        makeSortable(listEl, "navigation");
+
+        $$("[data-del]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () {
+            if (!confirm("Delete this navigation item?")) return;
+            guard(b, function () {
+              return api("/api/admin/navigation/" + b.dataset.del, "DELETE")
+                .then(function () { toast("✓ Deleted successfully"); route(); });
+            }, "Deleting…");
+          });
+        });
+        $$("[data-vis]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () {
+            var n = find(b.dataset.vis);
+            guard(b, function () {
+              return api("/api/admin/navigation/" + n.id, "PUT", { enabled: n.enabled === false })
+                .then(route);
+            }, "Saving…");
+          });
+        });
+        $$("[data-edit]", listEl).forEach(function (b) {
+          b.addEventListener("click", function () { openEditor(find(b.dataset.edit), b.closest(".dd-item")); });
+        });
+        function find(id) { return list.filter(function (x) { return x.id === id; })[0]; }
+      }
+
+      function openEditor(n, wrap) {
+        var panel = $("[data-editor]", wrap);
+        var isOpen = !panel.classList.contains("hidden");
+        $$(".editor-panel").forEach(function (p) { p.classList.add("hidden"); p.innerHTML = ""; });
+        if (isOpen) return;
+        panel.innerHTML =
+          '<div class="grid-2">' +
+            field("Label (display text)", 'class="nl-label"', n.label) +
+            field("Key (route identifier)", 'class="nl-key" placeholder="e.g. blog, about"', n.key) +
+          "</div>" +
+          field("URL / Route", 'class="nl-url" placeholder="#/blog or https://…"', n.url) +
+          '<div class="grid-2">' +
+            '<label class="check-row"><input type="checkbox" class="nl-enabled"' + (n.enabled !== false ? " checked" : "") + " /> Enabled (visible on site)</label>" +
+            '<label class="check-row"><input type="checkbox" class="nl-newtab"' + (n.newTab ? " checked" : "") + " /> Open in new tab</label>" +
+          "</div>" +
+          '<p class="hint" style="margin-top:10px">URL examples: <code>#/projects</code>, <code>#/blog</code>, <code>https://github.com/you</code></p>' +
+          '<div class="form-actions"><button type="button" class="btn-primary nl-save">Save Entry</button>' +
+          '<button type="button" class="btn-ghost nl-cancel">Cancel</button></div>';
+
+        $(".nl-cancel", panel).addEventListener("click", function () { panel.classList.add("hidden"); panel.innerHTML = ""; });
+        $(".nl-save", panel).addEventListener("click", function () {
+          var btn = this;
+          var patch = {
+            label: $(".nl-label", panel).value.trim(),
+            key: $(".nl-key", panel).value.trim(),
+            url: $(".nl-url", panel).value.trim(),
+            enabled: $(".nl-enabled", panel).checked,
+            newTab: $(".nl-newtab", panel).checked
+          };
+          if (!patch.label) return toast("Label is required.", true);
+          guard(btn, function () {
+            return api("/api/admin/navigation/" + n.id, "PUT", patch)
+              .then(function () { toast("✓ Saved successfully"); route(); });
+          });
+        });
+        panel.classList.remove("hidden");
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      $("#nav-add").addEventListener("click", function () {
+        guard($("#nav-add"), function () {
+          return api("/api/admin/navigation", "POST", {
+            key: "", label: "New Item", url: "#/", enabled: true, newTab: false
+          }).then(route);
+        }, "Adding…");
+      });
+
+      renderList();
+    });
+  });
+
+  /* ---------- APPEARANCE ---------- */
+  register("appearance", "Appearance", function (content) {
+    return api("/api/admin/settings").then(function (s) {
+      var theme = (s && s.theme) || "dark";
+      content.innerHTML =
+        '<div class="card"><h3>Website Theme</h3>' +
+          '<p class="hint" style="margin-bottom:14px">The selected theme is applied as the default for all visitors. Site visitors can still switch between dark and light using the theme toggle in the navbar.</p>' +
+          '<div class="theme-options" id="ap-theme">' +
+            '<label><input type="radio" name="ap-theme" value="dark"' + (theme === "dark" ? " checked" : "") + ' /><span>🌙 Dark</span></label>' +
+            '<label><input type="radio" name="ap-theme" value="light"' + (theme === "light" ? " checked" : "") + ' /><span>☀️ Light</span></label>' +
+            '<label><input type="radio" name="ap-theme" value="system"' + (theme === "system" ? " checked" : "") + ' /><span>🖥 System</span></label>' +
+          "</div>" +
+          '<div class="form-actions"><button type="button" class="btn-primary" id="ap-save">Save Theme</button></div></div>';
+
+      $("#ap-save").addEventListener("click", function () {
+        var v = $("#ap-theme input:checked").value;
+        guard($("#ap-save"), function () {
+          return api("/api/admin/settings", "PUT", { theme: v })
+            .then(function () { toast("✓ Theme saved"); });
         }, "Saving…");
       });
     });

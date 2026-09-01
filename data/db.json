@@ -320,10 +320,13 @@
       "status": "published",
       "id": "mt73dei0o8xrt0",
       "createdAt": "2026-08-24T10:27:05.256Z",
-      "updatedAt": "2026-08-24T10:39:23.800Z",
+      "updatedAt": "2026-09-01T10:44:29.876Z",
       "order": 0,
       "publishedAt": "2026-08-24T10:36:18.584Z",
-      "links": {}
+      "links": {},
+      "videoEnabled": false,
+      "videoUrl": "",
+      "videoTitle": ""
     }
   ],
   "posts": [
@@ -345,7 +348,8 @@
       "order": 0,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "weekend-in-dhaka"
     },
     {
       "id": "mt6sdwwikjfqmm",
@@ -365,7 +369,8 @@
       "order": 1,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "learning-kubernetes"
     },
     {
       "title": "Today Office work at night",
@@ -382,7 +387,8 @@
       "order": 2,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "today-office-work-at-night"
     },
     {
       "title": "Untitled post",
@@ -399,7 +405,8 @@
       "order": 3,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": null
+      "publishedAt": null,
+      "slug": "untitled-post"
     },
     {
       "title": "Untitled post",
@@ -416,7 +423,8 @@
       "order": 4,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "untitled-post"
     },
     {
       "title": "Untitled post",
@@ -433,7 +441,8 @@
       "order": 5,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "untitled-post"
     },
     {
       "title": "Untitled post",
@@ -450,7 +459,8 @@
       "order": 6,
       "createdAt": "2026-08-24T05:53:39.721Z",
       "updatedAt": "2026-08-24T05:53:39.721Z",
-      "publishedAt": "2026-08-24T05:53:39.721Z"
+      "publishedAt": "2026-08-24T05:53:39.721Z",
+      "slug": "untitled-post"
     },
     {
       "title": "Working Night",
@@ -471,7 +481,8 @@
       "createdAt": "2026-08-24T10:22:48.257Z",
       "updatedAt": "2026-08-24T10:22:48.257Z",
       "publishedAt": "2026-08-24T10:22:48.257Z",
-      "order": 7
+      "order": 7,
+      "slug": "working-night"
     }
   ],
   "messages": [
@@ -539,21 +550,269 @@
     "Career",
     "Travel"
   ],
-  "activity": [],
+  "activity": [
+    {
+      "id": "mtijilvl9qsb34",
+      "text": "Uploaded image: tt-test-mtijilvk.png",
+      "date": "2026-09-01T10:44:29.889Z"
+    },
+    {
+      "id": "mtijilvgxl3tcu",
+      "text": "Uploaded image: tt-test-mtijilvf.png",
+      "date": "2026-09-01T10:44:29.884Z"
+    },
+    {
+      "id": "mtijilty0cmwq5",
+      "text": "Added nav item: TT Link",
+      "date": "2026-09-01T10:44:29.830Z"
+    },
+    {
+      "id": "mtijilt822g5me",
+      "text": "Added education: BSc Test",
+      "date": "2026-09-01T10:44:29.804Z"
+    },
+    {
+      "id": "mtijilsqkb0d2d",
+      "text": "Deleted post: TT Test Post",
+      "date": "2026-09-01T10:44:29.786Z"
+    },
+    {
+      "id": "mtijilsay35fpp",
+      "text": "Published post: TT Test Post",
+      "date": "2026-09-01T10:44:29.770Z"
+    },
+    {
+      "id": "mtijilrwr7ib42",
+      "text": "Saved draft: TT Test Post",
+      "date": "2026-09-01T10:44:29.756Z"
+    },
+    {
+      "id": "mtijd0thw8hmeb",
+      "text": "Uploaded image: tt-test-mtijd0tg.png",
+      "date": "2026-09-01T10:40:09.317Z"
+    },
+    {
+      "id": "mtijd0tcyjzfc4",
+      "text": "Uploaded image: tt-test-mtijd0tc.png",
+      "date": "2026-09-01T10:40:09.312Z"
+    },
+    {
+      "id": "mtijd0s2g9t4va",
+      "text": "Added nav item: TT Link",
+      "date": "2026-09-01T10:40:09.266Z"
+    },
+    {
+      "id": "mtijd0rjspkzht",
+      "text": "Added education: BSc Test",
+      "date": "2026-09-01T10:40:09.247Z"
+    },
+    {
+      "id": "mtijd0r4q8s6zx",
+      "text": "Deleted post: TT Test Post",
+      "date": "2026-09-01T10:40:09.232Z"
+    },
+    {
+      "id": "mtijd0qqhykm6d",
+      "text": "Published post: TT Test Post",
+      "date": "2026-09-01T10:40:09.218Z"
+    },
+    {
+      "id": "mtijd0pz6e0vsy",
+      "text": "Saved draft: TT Test Post",
+      "date": "2026-09-01T10:40:09.191Z"
+    },
+    {
+      "id": "mtijck5iye92o8",
+      "text": "Added nav item: TT Link",
+      "date": "2026-09-01T10:39:47.718Z"
+    },
+    {
+      "id": "mtijck4ws03ckz",
+      "text": "Added education: BSc Test",
+      "date": "2026-09-01T10:39:47.696Z"
+    },
+    {
+      "id": "mtijck4evnoxr3",
+      "text": "Deleted post: TT Test Post",
+      "date": "2026-09-01T10:39:47.678Z"
+    },
+    {
+      "id": "mtijck403am4lb",
+      "text": "Published post: TT Test Post",
+      "date": "2026-09-01T10:39:47.664Z"
+    },
+    {
+      "id": "mtijck3kv9s91r",
+      "text": "Saved draft: TT Test Post",
+      "date": "2026-09-01T10:39:47.648Z"
+    },
+    {
+      "id": "mtijawj4bmr9ne",
+      "text": "Deleted post: TT Test Post",
+      "date": "2026-09-01T10:38:30.448Z"
+    },
+    {
+      "id": "mtijawi70oul10",
+      "text": "Published post: TT Test Post",
+      "date": "2026-09-01T10:38:30.415Z"
+    },
+    {
+      "id": "mtijawhrvu9lsf",
+      "text": "Saved draft: TT Test Post",
+      "date": "2026-09-01T10:38:30.399Z"
+    },
+    {
+      "id": "mtiigksrobncl3",
+      "text": "Deleted post: Persistence Test",
+      "date": "2026-09-01T10:14:55.563Z"
+    },
+    {
+      "id": "mtiigbzb91v6sr",
+      "text": "Added nav item: GitHub",
+      "date": "2026-09-01T10:14:44.135Z"
+    },
+    {
+      "id": "mtiifxuc4cbkv0",
+      "text": "Added education: BSc in CSE",
+      "date": "2026-09-01T10:14:25.812Z"
+    },
+    {
+      "id": "mtiif28ote0qt9",
+      "text": "Published post: Persistence Test",
+      "date": "2026-09-01T10:13:44.856Z"
+    },
+    {
+      "id": "mtiien6oa7pj9t",
+      "text": "Deleted post: TEST Persistence &amp; HTML",
+      "date": "2026-09-01T10:13:25.344Z"
+    },
+    {
+      "id": "mtii9wxf12hx1b",
+      "text": "Published post: TEST Persistence &amp; HTML",
+      "date": "2026-09-01T10:09:44.691Z"
+    }
+  ],
   "resume": null,
   "views": {
     "total": 1,
-    "today": 1,
+    "today": 0,
     "week": 1,
-    "month": 1,
-    "lastDate": "2026-08-31",
+    "month": 0,
+    "lastDate": "2026-09-01",
     "lastWeek": "2026-08-31",
-    "lastMonth": "2026-08"
+    "lastMonth": "2026-09"
   },
   "visitors": [
     {
       "k": "v6q6p8bz18clmth3l8di",
       "t": 1788172252340
     }
-  ]
+  ],
+  "education": [
+    {
+      "id": "mt6sdwwiu6xnau",
+      "level": "University",
+      "institution": "Uttara University",
+      "degree": "BSc in Computer Science & Engineering",
+      "subject": "",
+      "department": "",
+      "startYear": "",
+      "endYear": "",
+      "currentStudying": true,
+      "gpa": "",
+      "gpaScale": "",
+      "cgpa": "",
+      "cgpaScale": "4.00",
+      "resultType": "cgpa",
+      "result": "",
+      "resultScale": "4.00",
+      "showResult": false,
+      "description": "",
+      "location": "",
+      "website": "",
+      "logo": "",
+      "status": "published",
+      "order": 0
+    },
+    {
+      "id": "mt6sdwwih3bjn2",
+      "level": "University",
+      "institution": "Borak Polytechnic Institute",
+      "degree": "Diploma in Computer Engineering",
+      "subject": "",
+      "department": "",
+      "startYear": "",
+      "endYear": "",
+      "currentStudying": false,
+      "gpa": "",
+      "gpaScale": "",
+      "cgpa": "",
+      "cgpaScale": "",
+      "resultType": "",
+      "result": "",
+      "resultScale": "",
+      "showResult": false,
+      "description": "",
+      "location": "",
+      "website": "",
+      "logo": "",
+      "status": "published",
+      "order": 1
+    }
+  ],
+  "navigation": [
+    {
+      "id": "mtigejl234p4k9",
+      "key": "projects",
+      "label": "Projects",
+      "url": "#/projects",
+      "icon": "",
+      "newTab": false,
+      "order": 0,
+      "enabled": true
+    },
+    {
+      "id": "mtigejl26w4bd0",
+      "key": "experience",
+      "label": "Job Experience",
+      "url": "#/experience",
+      "icon": "",
+      "newTab": false,
+      "order": 1,
+      "enabled": true
+    },
+    {
+      "id": "mtigejl25r6017",
+      "key": "education",
+      "label": "Education",
+      "url": "#/education",
+      "icon": "",
+      "newTab": false,
+      "order": 2,
+      "enabled": true
+    },
+    {
+      "id": "mtigejl2n5pl7f",
+      "key": "about",
+      "label": "About",
+      "url": "#/about",
+      "icon": "",
+      "newTab": false,
+      "order": 3,
+      "enabled": true
+    },
+    {
+      "id": "mtigejl2scc945",
+      "key": "blog",
+      "label": "Blog",
+      "url": "#/blog",
+      "icon": "",
+      "newTab": false,
+      "order": 4,
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "theme": "dark"
+  }
 }

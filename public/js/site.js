@@ -19,6 +19,15 @@
     return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   }
 
+  /* YouTube detection + embed for project / about video URLs */
+  function isYouTube(u) {
+    return /(^|\.)youtube\.com|youtu\.be/i.test(u || "");
+  }
+  function youtubeEmbed(u) {
+    var m = String(u || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,20})/i);
+    return m ? "https://www.youtube.com/embed/" + m[1] + "?rel=0" : "";
+  }
+
   /* Detect whether post content is rich HTML (produced by the admin editor) or legacy plain text. */
   function isRichText(s) {
     return /<(p|br|ul|ol|h[123]|blockquote|div|li|strong|b|em|i|u|a|pre|code)[\s>]/i.test(s || "");
@@ -181,17 +190,49 @@
           return '<article class="interest-card glass"><svg class="ic"><use href="#i-camera"/></svg><h4>' + esc(it.title || "") + "</h4><p>" + esc(it.text || "") + "</p></article>";
         }).join("") + "</div></div>";
     }
+    var profile = "";
+    if (a.profileImage) {
+      var apFacts = "";
+      if (a.location) apFacts += '<li><svg class="ic"><use href="#i-pin"/></svg><span>' + esc(a.location) + "</span></li>";
+      if (a.availability) apFacts += '<li><svg class="ic"><use href="#i-check"/></svg><span>' + esc(a.availability) + "</span></li>";
+      if (a.yearsOfExperience) apFacts += '<li><svg class="ic"><use href="#i-briefcase"/></svg><span>' + esc(a.yearsOfExperience) + " of experience</span></li>";
+      profile = '<div class="about-profile" data-reveal>' +
+        '<img class="about-profile-img" src="' + esc(a.profileImage) + '" alt="' + esc(a.name || "Profile") + '" loading="lazy" />' +
+        '<div class="about-profile-meta">' +
+          (a.name ? '<h3>' + esc(a.name) + "</h3>" : "") +
+          (a.title ? '<p class="ap-role">' + esc(a.title) + "</p>" : "") +
+          (apFacts ? '<ul class="about-profile-facts">' + apFacts + "</ul>" : "") +
+        "</div></div>";
+    }
+    var extra = "";
+    if (a.headline) extra += '<p class="about-lead">' + esc(a.headline) + "</p>";
+    if (a.shortDescription) extra += "<p>" + esc(a.shortDescription) + "</p>";
+    if (a.detailedDescription || a.description) extra += '<p class="about-more">' + esc(a.detailedDescription || a.description) + "</p>";
+    if (a.careerSummary) extra += '<p class="about-more">' + esc(a.careerSummary) + "</p>";
+    var expLine = a.experienceSummary ? '<p class="about-experience">' + esc(a.experienceSummary) + "</p>" : "";
+    var video = "";
+    if (a.videoEnabled && a.videoUrl) {
+      video = '<div class="about-video" data-reveal>' +
+        '<div class="av-frame">' + (isYouTube(a.videoUrl)
+          ? '<iframe src="' + esc(youtubeEmbed(a.videoUrl)) + '" title="' + esc(a.videoTitle || "Introduction video") + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'
+          : '<video src="' + esc(a.videoUrl) + '" controls playsinline' +
+            (a.videoThumbnail ? ' poster="' + esc(a.videoThumbnail) + '"' : "") + '></video>') +
+        "</div>" +
+        (a.videoTitle ? '<h3 class="av-title">' + esc(a.videoTitle) + "</h3>" : "") +
+        (a.videoDescription ? '<p class="av-desc">' + esc(a.videoDescription) + "</p>" : "") +
+      "</div>";
+    }
     return (
       '<section id="about" class="section"><div class="container">' +
         '<div class="about-grid">' +
           '<div class="about-side" data-reveal>' +
-            '<p class="eyebrow">About Me</p><h2 class="section-title">More Than Just<br /><span class="grad-text">an Engineer</span></h2>' + focus +
+            '<p class="eyebrow">About Me</p><h2 class="section-title">More Than Just<br /><span class="grad-text">an Engineer</span></h2>' + focus + profile +
             (imgs ? '<div class="about-images">' + imgs + "</div>" : "") +
           "</div>" +
-          '<div class="about-story" data-reveal data-delay="120">' + paras +
-            (a.belief ? '<p class="about-belief">' + esc(a.belief) + "</p>" : "") + life +
+          '<div class="about-story" data-reveal data-delay="120">' + extra + paras +
+            (a.belief ? '<p class="about-belief">' + esc(a.belief) + "</p>" : "") + expLine + life +
           "</div>" +
-        "</div>" +
+        "</div>" + video +
       "</div></section>"
     );
   }
@@ -219,6 +260,7 @@
 
   function educationSection() {
     var src = (C.education && C.education.length ? C.education : (C.about.education || [])).slice();
+    src = src.filter(function (e) { return e.status !== "draft"; });
     src.sort(function (a, b) { return (a.order ?? 0) - (b.order ?? 0) || String(a.startYear||"").localeCompare(String(b.startYear||"")); });
     var items = src.map(function (ed, i) {
       var ongoing = ed.currentStudying === true || /pursu|current|ongoing|studying/i.test(ed.status || "");
@@ -242,6 +284,8 @@
           (ed.resultScale ? '<span class="edu-res-scale">/ ' + esc(ed.resultScale) + "</span>" : "") + "</p>";
       }
       var levelBadge = ed.level ? '<span class="edu-level">' + esc(ed.level) + "</span>" : "";
+      /* institution type e.g. University / Polytechnic Institute — shown subtly */
+      var instType = ed.institutionType ? '<span class="edu-inst-type">' + esc(ed.institutionType) + "</span>" : "";
       var subInfo = "";
       if (ed.department || ed.subject) subInfo = '<p class="edu-sub">' + [ed.department, ed.subject].filter(Boolean).map(esc).join(" · ") + "</p>";
       var dateLine = "";
@@ -253,20 +297,28 @@
       var desc = ed.description ? "<p>" + esc(ed.description) + "</p>" : "";
       var website = ed.website ? '<a class="edu-link" href="' + esc(ed.website) + '" target="_blank" rel="noopener"><svg class="ic"><use href="#i-ext"/></svg> Website</a>' : "";
       var degree = ed.degree || ed.program || "";
+      /* status text: "published"/"draft" is a publish-state, not academic text */
+      var statusText = "";
+      if (ed.status === "published" || ed.status === "draft") {
+        statusText = ongoing ? "Currently Studying" : "Completed";
+      } else {
+        statusText = ed.status || (ongoing ? "Currently Studying" : "Completed");
+      }
       return '<article class="edu-item" data-reveal style="--rd:' + i * 80 + 'ms">' +
         '<div class="edu-icon"><svg class="ic"><use href="#i-cap"/></svg></div>' +
         '<div class="edu-card glass"><div class="edu-top">' +
           (ed.logo ? '<img class="edu-logo" src="' + esc(ed.logo) + '" alt="" loading="lazy" />' : "") +
-          '<div class="edu-top-main">' + levelBadge +
-          '<span class="edu-status' + (ongoing ? "" : " done") + '">' + esc(ed.status || (ongoing ? "Currently Studying" : "Completed")) + "</span></div></div>" +
+          '<div class="edu-top-main">' + levelBadge + instType +
+          '<span class="edu-status' + (ongoing ? "" : " done") + '">' + esc(statusText) + "</span></div></div>" +
           "<h3>" + (degree ? esc(degree) : "Untitled") + '</h3><p class="edu-inst">' + esc(ed.institution || "") + "</p>" +
           subInfo + dateLine + loc + resLine + desc + website +
         "</div></article>";
     }).join("");
+    var empty = !items ? '<div class="empty-state glass"><svg class="ic"><use href="#i-folder"/></svg><h3>No education records yet</h3><p>Academic details will appear here once added from the admin panel.</p></div>' : "";
     return (
       '<section id="education" class="section"><div class="container">' +
         '<header class="section-head" data-reveal><p class="eyebrow">Academic Background</p><h2 class="section-title">My <span class="grad-text">Education</span></h2></header>' +
-        '<div class="edu-timeline">' + items + "</div>" +
+        (items ? '<div class="edu-timeline">' + items + "</div>" : empty) +
       "</div></section>"
     );
   }
@@ -357,8 +409,9 @@
     var videoSrc = p.videoUrl || p.video || "";
     var showVideo = (p.videoEnabled === true) && videoSrc;
     var video = showVideo
-      ? '<section class="pd-video"><div class="pd-video-inner">' +
-          '<div class="video-shell" ' +
+      ? '<section class="pd-video"><div class="pd-video-inner">' + (isYouTube(videoSrc)
+          ? '<div class="video-shell yt-shell"><iframe src="' + esc(youtubeEmbed(videoSrc)) + '" title="' + esc(p.videoTitle || p.title || "Project video") + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>'
+          : '<div class="video-shell" ' +
             (p.videoPoster ? 'style="--poster:url(\'' + esc(p.videoPoster) + '\')"' : "") + '>' +
             '<video class="custom-video" id="project-video" preload="metadata" playsinline ' +
             (p.videoPoster ? 'poster="' + esc(p.videoPoster) + '"' : "") + '>' +
@@ -371,7 +424,7 @@
               '<svg class="ic"><use href="#i-warning"/></svg>' +
               "This video couldn't be played. The URL or file may be unavailable." +
             "</div>" +
-          "</div>" +
+          "</div>") +
           renderVideoInfo(p) +
         "</div></section>"
       : "";
@@ -514,11 +567,12 @@
           '<div class="post-meta"><span><svg class="ic"><use href="#i-calendar"/></svg>' + esc(fmtDate(p.date)) + "</span>" + locLine + "</div></div>" +
           (p.category ? '<span class="cat-chip ' + (CAT_CLASS[catKey] || "") + '">' + esc(p.category) + "</span>" : "") +
         "</header>" +
-        '<h3 class="post-title">' + esc(p.title) + "</h3>" +
+        '<h3 class="post-title"><a href="#/blog/' + esc(p.slug || p.id) + '">' + esc(p.title) + "</a></h3>" +
         renderRich(p.text) +
         gallery +
         (tags ? '<div class="post-tags">' + tags + "</div>" : "") +
         '<footer class="post-actions">' +
+          '<a class="action-btn read-more" href="#/blog/' + esc(p.slug || p.id) + '">Read More <svg class="ic"><use href="#i-arrow-r"/></svg></a>' +
           '<button type="button" class="action-btn like-btn" data-post="' + esc(p.id) + '"><svg class="ic"><use href="#i-heart-fill"/></svg><span class="like-count">' + (p.likes || 0) + "</span></button>" +
           '<button type="button" class="action-btn comments-toggle" data-post="' + esc(p.id) + '"><svg class="ic"><use href="#i-comment"/></svg><span>' + (p.comments || []).length + '</span></button>' +
           '<button type="button" class="action-btn share-btn" data-title="' + esc(p.title) + '"><svg class="ic"><use href="#i-share"/></svg><span>Share</span></button>' +
@@ -534,15 +588,75 @@
     );
   }
 
-  function blogSection() {
-    var posts = C.posts.map(blogPostHTML).join("");
+  /* ---------- dedicated single post page ---------- */
+  function blogPostPageHTML(p) {
+    var notes = "";
+    var all = C.posts || [];
+    var idx = all.findIndex(function (x) { return x.id === p.id; });
+    var prev = idx > 0 ? all[idx - 1] : null;
+    var next = idx < all.length - 1 ? all[idx + 1] : null;
+    var nav = "";
+    if (prev) nav += '<a class="bp-nav-link" href="#/blog/' + esc(prev.slug || prev.id) + '"><svg class="ic"><use href="#i-arrow-l"/></svg><span>' + esc(prev.title || "") + "</span></a>";
+    else nav += '<span class="bp-nav-placeholder"></span>';
+    if (next) nav += '<a class="bp-nav-link right" href="#/blog/' + esc(next.slug || next.id) + '"><span>' + esc(next.title || "") + "</span>" + '<svg class="ic"><use href="#i-arrow-r"/></svg></a>';
+    var imgs = p.images || [];
+    var galleryHtml = "";
+    if (imgs.length) {
+      galleryHtml = '<div class="bp-gallery">' + imgs.map(function (u) {
+        return '<img src="' + esc(u) + '" alt="' + esc(p.title) + '" loading="lazy" data-lightbox />';
+      }).join("") + "</div>";
+    }
+    var tags = (p.tags || []).map(function (t) { return '<span class="tag">' + esc(t) + "</span>"; }).join("");
+    var commentsHtml = (p.comments || []).map(function (cm) {
+      return '<div class="comment-item"><strong>' + esc(cm.name) + "</strong><p>" + esc(cm.text) + "</p></div>";
+    }).join("");
     return (
-      '<section id="blog" class="section"><div class="container blog-container">' +
-        '<header class="section-head" data-reveal><p class="eyebrow">Digital Diary</p><h2 class="section-title">Beyond the <span class="grad-text">Terminal</span></h2>' +
-        '<p class="section-sub">Life, travel, learning and everything in between.</p></header>' +
-        '<div class="blog-feed">' + (posts || "") + "</div>" +
-        (!posts ? '<p class="blog-empty">No posts yet — new updates coming soon.</p>' : "") +
-      "</div></section>"
+      '<article class="blog-post-page section solo-section" id="single-post">' +
+        '<div class="container">' +
+          '<a class="pd-back" href="#/blog">← Back to Blog</a>' +
+          '<header class="blog-post-head">' +
+            (p.category ? '<span class="cat-chip">' + esc(p.category) + "</span>" : "") +
+            '<h1 class="blog-post-title">' + esc(p.title) + "</h1>" +
+            '<div class="blog-post-meta"><span><svg class="ic"><use href="#i-calendar"/></svg>' + esc(fmtDate(p.date)) + "</span>" +
+              (p.location ? '<span><svg class="ic"><use href="#i-pin"/></svg>' + esc(p.location) + "</span>" : "") +
+            "</div>" +
+          "</header>" +
+          galleryHtml +
+          '<div class="blog-post-body post-richtext">' + (isRichText(p.text) ? p.text : renderRich(p.text)) + "</div>" +
+          (tags ? '<div class="post-tags">' + tags + "</div>" : "") +
+          '<div class="blog-post-footer">' +
+            '<button type="button" class="action-btn like-btn" data-post="' + esc(p.id) + '"><svg class="ic"><use href="#i-heart-fill"/></svg><span class="like-count">' + (p.likes || 0) + '</span> Likes</button>' +
+            '<button type="button" class="action-btn share-btn" data-title="' + esc(p.title) + '"><svg class="ic"><use href="#i-share"/></svg><span>Share</span></button>' +
+          "</div>" +
+          '<div class="blog-post-comments"><h3>Comments</h3>' +
+            commentsHtml +
+            '<form class="comment-form" data-post="' + esc(p.id) + '">' +
+              '<input type="text" name="name" placeholder="Your name" maxlength="80" required />' +
+              '<input type="text" name="text" placeholder="Write a comment…" maxlength="1000" required />' +
+              "<button type=\"submit\">Send</button>" +
+            "</form>" +
+          "</div>" +
+          '<div class="bp-nav">' + nav + "</div>" +
+        "</div>" +
+      "</article>"
+    );
+  }
+
+  function blogSection() {
+    var posts = C.posts.map(function (p, i) { return blogPostHTML(p, i); }).join("");
+    return (
+      '<section id="blog" class="section blog-section">' +
+        '<div class="blog-hero"><div class="container">' +
+          '<p class="eyebrow">Digital Diary</p>' +
+          '<h1 class="blog-hero-title">Beyond the <span class="grad-text">Terminal</span></h1>' +
+          '<p class="blog-hero-sub">Life, travel, learning and everything in between.</p>' +
+        "</div></div>" +
+        '<div class="container blog-container">' +
+          '<header class="section-head" data-reveal><p class="eyebrow">All Posts</p><h2 class="section-title">Latest <span class="grad-text">Updates</span></h2></header>' +
+          '<div class="blog-feed">' + (posts || "") + "</div>" +
+          (!posts ? '<p class="blog-empty">No posts yet — new updates coming soon.</p>' : "") +
+        "</div>" +
+      "</section>"
     );
   }
 
@@ -609,7 +723,9 @@
     return "#/" + (n && n.key ? n.key : "");
   }
   function navExternal(href) {
-    return /^(https?:|mailto:|tel:)/i.test(href) || /^#(?![\/a-zA-Z])/.test(href);
+    /* only genuine protocol links (http/https/mailto/tel) open in a new tab.
+       Hash routes (#/…) and in-page anchors (#contact) are internal. */
+    return /^(https?:|mailto:|tel:)/i.test(href || "");
   }
   function navEntries(enabled) {
     var list = (C && C.navigation) || NAV_MAP;
@@ -675,32 +791,46 @@
     var m = (location.hash || "").match(/^#\/project\/([\w-]+)/);
     return m ? m[1] : null;
   }
+  function currentBlogSlug() {
+    var m = (location.hash || "").match(/^#\/blog\/([\w-]+)/);
+    return m ? m[1] : null;
+  }
 
   var pendingScroll = null;
   var lastMode = null;
 
   function render() {
     var app = el("app");
-    var order = (C.sections && C.sections.order) || ["hero", "experience", "projects", "about", "education", "certifications", "skills", "blog", "contact"];
+    var order = (C.sections && C.sections.order) || ["hero", "experience", "projects", "about", "education", "certifications", "skills", "contact"];
     var enabled = (C.sections && C.sections.enabled) || {};
+    var homeOrder = (C.sections && C.sections.homeOrder) || [].concat(order).filter(function (k) { return k !== "blog"; });
     var projId = currentProjectId();
     var mode = currentMode();
     var project = null;
+    var blogSlug = currentBlogSlug();
+    var blogPost = null;
+    if (blogSlug) {
+      blogPost = C.posts.filter(function (p) { return p.id === blogSlug || (p.slug || "") === blogSlug; })[0] || null;
+    }
     if (projId) {
       project = C.projects.filter(function (p) { return p.slug === projId || p.id === projId; })[0] || null;
     }
+    if (blogPost) mode = null;
     if (project) mode = null;
     if (mode === "project") mode = null;
+    if (mode === "blog" && blogSlug && !blogPost) { mode = "blog"; }
 
-    document.body.classList.toggle("solo", !!mode || !!project);
+    document.body.classList.toggle("solo", !!mode || !!project || !!blogPost);
 
     if (project) {
       app.innerHTML = projectDetailsHTML(project);
+    } else if (blogPost) {
+      app.innerHTML = blogPostPageHTML(blogPost);
     } else if (mode) {
       app.innerHTML = BUILDERS[mode]();
     } else {
       var html = "";
-      order.forEach(function (key) {
+      homeOrder.forEach(function (key) {
         if (enabled[key] !== false && BUILDERS[key]) html += BUILDERS[key]();
       });
       app.innerHTML = html;
@@ -708,7 +838,7 @@
     lastMode = mode;
 
     /* chrome */
-    var navMode = project ? "projects" : mode;
+    var navMode = blogPost ? "blog" : (project ? "projects" : mode);
     el("nav-links").innerHTML = navList(enabled, navMode);
     el("nav-contact").style.display = enabled.contact === false ? "none" : "";
     el("mobile-menu").innerHTML =
@@ -719,7 +849,7 @@
 
     initInteractions(mode);
     if (project) initProjectPage();
-    if ((!mode && !project) || (mode === "hero")) {
+    if ((!mode && !project && !blogPost) || (mode === "hero")) {
       if (!C.home.heroImage) runTerminal();
     }
 
@@ -727,7 +857,7 @@
       var t = el(pendingScroll);
       pendingScroll = null;
       if (t) setTimeout(function () { scrollToEl(t); }, 80);
-    } else if (mode || project) {
+    } else if (mode || project || blogPost) {
       window.scrollTo(0, 0);
     }
     PROJECT_ID = projId;
@@ -764,12 +894,21 @@
     }
   });
 
-  /* scrollspy — full page only (solo views mark their link statically) */
+  /* scrollspy — full page only (solo views mark their link statically).
+     Tracks the sections that exist on the homepage AND are in nav config,
+     so admin-managed navigation stays in sync with highlighting. */
   function updateSpy() {
     if (currentMode()) return;
     var pos = window.scrollY + window.innerHeight * 0.35;
+    var keys = ["home"];
+    navEntries().forEach(function (n) {
+      var m = navHref(n).match(/^#\/([a-zA-Z]+)/);
+      if (m) keys.push(m[1]);
+    });
+    var seen = {};
+    keys = keys.filter(function (k) { return seen[k] ? false : (seen[k] = true); });
     var current = "home";
-    ["home", "projects", "experience", "education", "about", "blog"].forEach(function (key) {
+    keys.forEach(function (key) {
       var sec = el(key === "home" ? "hero" : key);
       if (sec && sec.offsetTop <= pos) current = key;
     });
@@ -852,16 +991,22 @@
           body: JSON.stringify({ name: name, text: text })
         }).then(function (r) { return r.json(); }).then(function (d) {
           if (d.ok) {
-            var list = form.closest(".comments-wrap");
+            var list = form.closest(".comments-wrap, .blog-post-comments");
+            var container = list || form.parentNode;
             var html = "";
             d.comments.forEach(function (cm) {
               html += '<div class="comment-item"><strong>' + esc(cm.name) + "</strong><p>" + esc(cm.text) + "</p></div>";
             });
             var formKeep = form.outerHTML;
-            var toggleBtn = list.closest(".post-card").querySelector(".comments-toggle span");
+            var toggleBtn = list ? list.closest(".post-card").querySelector(".comments-toggle span") : null;
             if (toggleBtn) toggleBtn.textContent = d.comments.length;
-            list.innerHTML = html + formKeep;
-            bindCommentForm(list.querySelector(".comment-form"));
+            var extra = "";
+            if (list && list.classList.contains("blog-post-comments")) {
+              var h = list.querySelector("h3");
+              if (h) extra = h.outerHTML;
+            }
+            container.innerHTML = (extra || "") + html + formKeep;
+            bindCommentForm(container.querySelector(".comment-form"));
             showToast("Comment added");
           }
         });
@@ -870,7 +1015,7 @@
 
     document.querySelectorAll(".share-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var url = window.location.origin + window.location.pathname + "#blog";
+        var url = window.location.origin + window.location.pathname + "#/blog/" + btn.dataset.post;
         if (navigator.share) {
           navigator.share({ title: btn.dataset.title, url: url }).catch(function () {});
         } else if (navigator.clipboard) {
@@ -1222,6 +1367,13 @@
       document.body.appendChild(lb);
     }
   });
+  /* broken-image detection (delegated — survives re-renders) */
+  document.body.addEventListener("error", function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== "IMG" || t.classList.contains("img-broken")) return;
+    t.classList.add("img-broken");
+    t.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  }, true);
 
   fetch("/api/content")
     .then(function (r) { return r.json(); })
