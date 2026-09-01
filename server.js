@@ -992,7 +992,8 @@ async function handleAPI(req, res, pathname) {
     const allowed = ["intro", "belief", "focus", "images", "lifeTitle", "lifeItems", "certifications",
       "name", "title", "headline", "shortDescription", "description", "detailedDescription",
       "careerSummary", "location", "availability", "experienceSummary", "yearsOfExperience",
-      "profileImage", "videoUrl", "videoTitle", "videoDescription", "videoEnabled", "videoThumbnail"];
+      "profileImage", "videoUrl", "videoTitle", "videoDescription", "videoEnabled", "videoThumbnail",
+      "profileVideo", "profileMediaType"];
     for (const k of allowed) if (k in b) db.about[k] = b[k];
     saveDB();
     return sendJSON(res, 200, db.about);
@@ -1373,6 +1374,19 @@ async function handleAPI(req, res, pathname) {
     logActivity("Removed resume / CV");
     saveDB();
     return sendJSON(res, 200, { ok: true });
+  }
+  if (pathname === "/api/admin/resume/url" && method === "PUT") {
+    const b = await readBody(req);
+    const url = String(b.url || "").trim().slice(0, 500);
+    if (!/^https?:\/\//i.test(url)) return sendJSON(res, 400, { error: "Resume URL must start with http(s)://" });
+    db.resume = {
+      filename: "External Resume",
+      url: url,
+      uploadedAt: (db.resume && db.resume.uploadedAt) || new Date().toISOString()
+    };
+    logActivity("Set external resume URL");
+    saveDB();
+    return sendJSON(res, 200, db.resume);
   }
 
   /* ----- media ----- */

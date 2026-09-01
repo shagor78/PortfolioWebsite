@@ -635,285 +635,156 @@
     });
   });
 
-  /* ---------- ABOUT ---------- */
-  register("about", "About Section", function (content) {
-    return api("/api/admin/about").then(function (a) {
+  /* ---------- ABOUT (dedicated, simple) ---------- */
+  register("about", "About", function (content) {
+    return Promise.all([api("/api/admin/about"), api("/api/admin/resume")]).then(function (r) {
+      var base = r[0] || {};
+      var res = r[1] || null;
+      var profileImage = base.profileImage || "";
+      var profileVideo = base.profileVideo || "";
+      var mediaType = (base.profileMediaType === "video" && profileVideo) ? "video" : "image";
+      var resUrl = (res && /^https?:/i.test(res.url)) ? res.url : "";
+
       content.innerHTML =
-        '<div class="card"><h3>Person &amp; Profile</h3>' +
-          '<div class="field"><label>Profile image</label><div class="img-thumbs" id="ab-pimg"></div>' +
-            '<div class="form-actions">' +
-              '<button type="button" class="btn-mini" id="ab-addpimg">Choose image</button>' +
-              '<label class="btn-mini" style="cursor:pointer">Upload from computer<input type="file" accept="image/*" id="ab-pimgupload" style="display:none" /></label>' +
-            '</div></div>' +
-          field("Full name", 'id="ab-name"', a.name) +
-          field("Title / role", 'id="ab-title"', a.title) +
-          field("Headline (short tagline)", 'id="ab-headline"', a.headline) +
-          field("Location / timezone", 'id="ab-location"', a.location) +
-          field("Availability / status", 'id="ab-avail"', a.availability) +
-          '<div class="grid-2">' +
-            field("Years of experience", 'id="ab-expyrs"', a.yearsOfExperience) +
-            field("Experience summary (short line)", 'id="ab-expsum"', a.experienceSummary) +
-          '</div>' +
-          textareaField("Short description", 'id="ab-shortdesc" rows="3"', a.shortDescription) +
-          textareaField("Detailed description", 'id="ab-desc" rows="6"', a.description || a.detailedDescription) +
-          textareaField("Career summary", 'id="ab-career" rows="5"', a.careerSummary) +
-        '</div>' +
-        '<div class="card"><h3>Personal introduction video</h3>' +
-          '<label style="display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted);margin-bottom:12px;cursor:pointer">' +
-            '<input type="checkbox" id="ab-videoen"' + (a.videoEnabled ? " checked" : "") + ' /> Show my introduction video on the About section</label>' +
-          field("Video URL (direct .mp4/.webm/.mov, or YouTube)", 'id="ab-vurl"', a.videoUrl) +
-          '<div class="form-actions">' +
-            '<label class="btn-mini" style="cursor:pointer">⬆ Upload video<input type="file" accept="video/*" id="ab-vupload" style="display:none" /></label>' +
-            '<button type="button" class="btn-mini" id="ab-vclear">Remove video</button>' +
-          '</div>' +
-          '<div id="ab-vprev" style="margin-top:10px"></div>' +
-          '<div class="grid-2" style="margin-top:12px">' +
-            field("Video title", 'id="ab-vtitle"', a.videoTitle) +
-            field("Video poster (thumbnail URL)", 'id="ab-vposter"', a.videoThumbnail) +
-          '</div>' +
-          '<div class="field"><label>Thumbnail image</label><div class="img-thumbs" id="ab-vthumb"></div>' +
-            '<div class="form-actions"><button type="button" class="btn-mini" id="ab-addvthumb">Choose image</button></div></div>' +
-          textareaField("Video description", 'id="ab-vdesc" rows="2"', a.videoDescription) +
-        '</div>' +
-        '<div class="card"><h3>Introduction paragraphs</h3><div id="ab-paras"></div>' +
-          '<button type="button" class="btn-mini" id="ab-addpara">＋ Add Paragraph</button></div>' +
-        '<div class="card"><h3>Belief &amp; Focus</h3>' +
-          textareaField("Belief statement (highlighted quote)", 'id="ab-belief" rows="2"', a.belief) +
-          field("Professional focus (separate items with •)", 'id="ab-focus"', a.focus) +
+        '<div class="card"><h3>Name &amp; Role</h3>' +
+          field("Name", 'id="ab-name"', base.name) +
+          field("Work Role / Professional Title", 'id="ab-title"', base.title) +
         "</div>" +
-        '<div class="card"><h3>About images</h3><div class="img-thumbs ab-imgs"></div>' +
-          '<div class="form-actions"><button type="button" class="btn-mini ab-addimg">Add Images</button></div></div>' +
-        '<div class="card"><h3>Personal life — “When I\'m Not Working”</h3>' +
-          field("Section title", 'id="ab-lifetitle"', a.lifeTitle) +
-          '<div id="ab-life"></div>' +
-          '<button type="button" class="btn-mini" id="ab-addlife">＋ Add Item</button>' +
+        '<div class="card"><h3>Description</h3>' +
+          textareaField("Short professional description", 'id="ab-desc" rows="4"',
+            base.shortDescription || base.description || base.detailedDescription || "") +
         "</div>" +
-        '<div class="card"><h3>Education</h3><div id="ab-edu"></div>' +
-          '<button type="button" class="btn-mini" id="ab-addedu">＋ Add Education</button></div>' +
-        '<div class="card"><h3>Certifications</h3><div id="ab-cert"></div>' +
-          '<button type="button" class="btn-mini" id="ab-addcert">＋ Add Certification</button></div>' +
-        '<div class="form-actions"><button type="button" class="btn-primary" id="ab-save">Save About Section</button></div>';
+        '<div class="card"><h3>Location</h3>' +
+          field("Location", 'id="ab-location"', base.location) +
+        "</div>" +
+        '<div class="card"><h3>Profile Media</h3>' +
+          '<div class="ab-type-row">' +
+            '<label class="ab-type"><input type="radio" name="ab-media" id="ab-media-img"' + (mediaType !== "video" ? " checked" : "") + ' /><span>Image</span></label>' +
+            '<label class="ab-type"><input type="radio" name="ab-media" id="ab-media-vid"' + (mediaType === "video" ? " checked" : "") + ' /><span>Video</span></label>' +
+          "</div>" +
+          '<div id="ab-media-area" style="margin-top:14px"></div>' +
+        "</div>" +
+        '<div class="card"><h3>Resume</h3>' +
+          '<div id="ab-res"></div>' +
+          field("Resume URL (optional, https://…)", 'id="ab-resurl"', resUrl) +
+        "</div>" +
+        '<div class="form-actions"><button type="button" class="btn-primary" id="ab-save">SAVE CHANGES</button></div>';
 
-      /* intro paragraphs */
-      var paras = (a.intro || []).slice();
-      function renderParas() {
-        $("#ab-paras").innerHTML = paras.map(function (p, i) {
-          return '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">' +
-            '<textarea data-pi="' + i + '" rows="2" style="flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-family:inherit">' + esc(p) + "</textarea>" +
-            '<button type="button" class="btn-danger" data-pdel="' + i + '">✕</button></div>';
-        }).join("");
-        $$("[data-pdel]").forEach(function (b) {
-          b.addEventListener("click", function () { paras.splice(+b.dataset.pdel, 1); renderParas(); });
-        });
-      }
-      renderParas();
-      $("#ab-addpara").addEventListener("click", function () { paras.push(""); renderParas(); });
-
-      /* life items */
-      var life = (a.lifeItems || []).slice();
-      function renderLife() {
-        $("#ab-life").innerHTML = life.map(function (it, i) {
-          return '<div class="editor-panel" style="margin-bottom:10px"><div style="display:flex;gap:10px">' +
-            '<input type="text" data-li-t="' + i + '" value="' + esc(it.title) + '" placeholder="Title" style="flex:1;padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            '<button type="button" class="btn-danger" data-lidel="' + i + '">✕</button></div>' +
-            '<textarea data-li-x="' + i + '" rows="2" placeholder="Text" style="width:100%;margin-top:8px;padding:10px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit">' + esc(it.text) + "</textarea></div>";
-        }).join("");
-        $$("[data-lidel]").forEach(function (b) {
-          b.addEventListener("click", function () { life.splice(+b.dataset.lidel, 1); renderLife(); });
-        });
-      }
-      renderLife();
-      $("#ab-addlife").addEventListener("click", function () { life.push({ title: "", text: "" }); renderLife(); });
-
-      /* education */
-      var edu = (a.education || []).slice();
-      function renderEdu() {
-        $("#ab-edu").innerHTML = edu.map(function (e, i) {
-          var years = e.years || "";
-          var loc = e.location || "";
-          return '<div class="editor-panel edu-panel" style="margin-bottom:12px">' +
-            '<div class="grid-2">' +
-              '<input type="text" data-ed-d="' + i + '" value="' + esc(e.degree || e.title || "") + '" placeholder="Degree / course title" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<input type="text" data-ed-i="' + i + '" value="' + esc(e.institution || "") + '" placeholder="Institution / university" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            "</div>" +
-            '<div class="grid-2" style="margin-top:8px">' +
-              '<select data-ed-level="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
-                ["High School","Diploma","Associate","Bachelor","Master","PhD","Certificate","Other"].map(function (o) { return "<option" + (o === (e.level||"") ? " selected" : "") + ">" + o + "</option>"; }).join("") +
-              "</select>" +
-              '<select data-ed-st="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
-                ["Currently Studying","Completed"].map(function (o) { return "<option" + (o === (e.currentStudying ? "Currently Studying" : e.status) ? " selected" : "") + ">" + o + "</option>"; }).join("") +
-              "</select>" +
-            "</div>" +
-            '<div class="grid-2" style="margin-top:8px">' +
-              '<input type="text" data-ed-dep="' + i + '" value="' + esc(e.department || "") + '" placeholder="Department (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<input type="text" data-ed-sub="' + i + '" value="' + esc(e.subject || "") + '" placeholder="Subject / major (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            "</div>" +
-            '<div class="grid-2" style="margin-top:8px">' +
-              '<input type="text" data-ed-y="' + i + '" value="' + esc(years) + '" placeholder="Years e.g. 2018 — 2022" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<input type="text" data-ed-loc="' + i + '" value="' + esc(loc) + '" placeholder="Location (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            "</div>" +
-            '<div style="display:flex;gap:10px;margin-top:8px;align-items:flex-end;flex-wrap:wrap">' +
-              '<input type="text" data-ed-rt="' + i + '" value="' + esc(e.resultType === "cgpa" ? "CGPA" : e.resultType === "gpa" ? "GPA" : "") + '" placeholder="Result type (CGPA / GPA)" style="width:150px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<input type="text" data-ed-r="' + i + '" value="' + esc(e.cgpa || e.gpa || e.result || "") + '" placeholder="Result e.g. 3.71" style="width:120px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<input type="text" data-ed-sc="' + i + '" value="' + esc(e.scale || e.resultScale || "") + '" placeholder="Scale e.g. 4.00" style="width:120px;padding:9px 13px;border:1px solid var(--line);border-radius:9px" />' +
-              '<label style="display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted);cursor:pointer">' +
-                '<input type="checkbox" data-ed-show="' + i + '"' + (e.showResult !== false ? " checked" : "") + ' /> Show result on site</label>' +
-              '<button type="button" class="btn-danger" data-edel="' + i + '">✕ Remove</button>' +
-            "</div>" +
-            '<div style="margin-top:8px">' +
-              '<input type="text" data-ed-site="' + i + '" value="' + esc(e.website || "") + '" placeholder="Website (optional, e.g. https://university.edu)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px;width:100%" />' +
-            "</div>" +
-            '<textarea data-ed-desc="' + i + '" rows="2" placeholder="Short notes / description (optional)" style="width:100%;margin-top:8px;padding:10px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit">' + esc(e.description || "") + "</textarea>" +
-          "</div>";
-        }).join("");
-        $$("[data-edel]").forEach(function (b) {
-          b.addEventListener("click", function () { edu.splice(+b.dataset.edel, 1); renderEdu(); });
-        });
-      }
-      renderEdu();
-      $("#ab-addedu").addEventListener("click", function () {
-        edu.push({ level: "Bachelor", degree: "", institution: "", currentStudying: true, department: "", subject: "", years: "", location: "", resultType: "", result: "", gpa: "", cgpa: "", scale: "", showResult: true, website: "", description: "" });
-        renderEdu();
-      });
-
-      /* certifications */
-      var certs = (a.certifications || []).slice();
-      function renderCerts() {
-        $("#ab-cert").innerHTML = certs.map(function (ct, i) {
-          return '<div class="editor-panel" style="margin-bottom:10px"><div class="grid-2">' +
-            '<input type="text" data-ct-n="' + i + '" value="' + esc(ct.name) + '" placeholder="Certification name" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" />' +
-            '<input type="text" data-ct-c="' + i + '" value="' + esc(ct.code) + '" placeholder="Code (optional)" style="padding:10px 13px;border:1px solid var(--line);border-radius:9px" /></div>' +
-            '<div style="display:flex;gap:10px;margin-top:8px;align-items:center">' +
-            '<select data-ct-t="' + i + '" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px">' +
-            ["Certification", "Course", "Training"].map(function (o) { return "<option" + (o === ct.type ? " selected" : "") + ">" + o + "</option>"; }).join("") +
-            '</select><button type="button" class="btn-danger" data-ctdel="' + i + '">✕ Remove</button></div></div>';
-        }).join("");
-        $$("[data-ctdel]").forEach(function (b) {
-          b.addEventListener("click", function () { certs.splice(+b.dataset.ctdel, 1); renderCerts(); });
-        });
-      }
-      renderCerts();
-      $("#ab-addcert").addEventListener("click", function () { certs.push({ name: "", code: "", type: "Course" }); renderCerts(); });
-
-      /* images */
-      var aImgs = (a.images || []).slice();
-      var imgsRoot = $(".ab-imgs");
-      function rImgs() { imgsRoot.innerHTML = thumbsHTML(aImgs); bindThumbRemove(imgsRoot, function () { return aImgs; }, rImgs); }
-      rImgs();
-      $(".ab-addimg").addEventListener("click", function () {
-        openPicker(true, function (urls) { aImgs = aImgs.concat(urls); rImgs(); });
-      });
-
-      /* profile image */
-      var pImgs = a.profileImage ? [a.profileImage] : [];
-      var pImgRoot = $("#ab-pimg");
-      function rPImgs() { pImgRoot.innerHTML = thumbsHTML(pImgs); bindThumbRemove(pImgRoot, function () { return pImgs; }, rPImgs); }
-      rPImgs();
-      $("#ab-addpimg").addEventListener("click", function () {
-        openPicker(false, function (urls) { pImgs = [urls[0]]; rPImgs(); });
-      });
-      $("#ab-pimgupload").addEventListener("change", function () {
-        var f = $("#ab-pimgupload").files[0];
-        if (!f) return;
-        guard($("#ab-pimgupload"), function () {
-          return uploadSingle(f).then(function (url) { pImgs = [url]; rPImgs(); $("#ab-pimgupload").value = ""; });
-        }, "Uploading…");
-      });
-
-      /* about video */
-      function showVidPrev() {
-        var url = $("#ab-vurl").value.trim();
-        $("#ab-vprev").innerHTML = url ? (isYouTubeUrl(url)
-          ? '<iframe src="' + esc(youtubeEmbed(url)) + '" title="Video preview" style="width:100%;aspect-ratio:16/9;border-radius:10px;border:0" allowfullscreen></iframe>'
-          : '<video src="' + esc(url) + '" controls playsinline style="max-width:100%;max-height:260px;border-radius:10px;background:#000"></video>') : "";
-        $("#ab-vclear").disabled = !url;
-      }
-      showVidPrev();
-      $("#ab-vurl").addEventListener("input", showVidPrev);
-      $("#ab-vupload").addEventListener("change", function () {
-        var f = $("#ab-vupload").files[0];
-        if (!f) return;
-        guard($("#ab-vupload"), function () {
-          return uploadVideo(f).then(function (info) {
-            $("#ab-vurl").value = info.url; showVidPrev(); $("#ab-vupload").value = "";
+      /* ---- Profile Media ---- */
+      function renderMedia() {
+        var useVideo = $("#ab-media-vid").checked;
+        if (useVideo) {
+          $("#ab-media-area").innerHTML =
+            '<div class="field"><label>Video</label>' +
+              '<div id="ab-vprev">' + (profileVideo
+                ? '<video src="' + esc(profileVideo) + '" controls playsinline style="width:100%;aspect-ratio:16/9;border-radius:10px;background:#000"></video>'
+                : '<p class="hint">No video yet.</p>') + "</div>" +
+              '<div class="form-actions">' +
+                '<label class="btn-mini" style="cursor:pointer">Upload Video<input type="file" accept="video/*" id="ab-vup" hidden /></label>' +
+                (profileVideo ? '<button type="button" class="btn-danger" id="ab-vrem">Remove Video</button>' : "") +
+              "</div></div>";
+          $("#ab-vup").addEventListener("change", function () {
+            var f = $("#ab-vup").files[0];
+            $("#ab-vup").value = "";
+            if (!f) return;
+            guard($("#ab-vup"), function () {
+              return uploadVideo(f).then(function (url) { profileVideo = url; renderMedia(); });
+            }, "Uploading…");
           });
-        }, "Uploading…");
-      });
-      $("#ab-vclear").addEventListener("click", function () { $("#ab-vurl").value = ""; showVidPrev(); });
+          var vr = $("#ab-vrem");
+          if (vr) vr.addEventListener("click", function () { profileVideo = ""; renderMedia(); });
+        } else {
+          $("#ab-media-area").innerHTML =
+            '<div class="field"><label>Image</label>' +
+              '<div class="img-thumbs" id="ab-pimg">' + thumbsHTML(profileImage ? [profileImage] : []) + "</div>" +
+              '<div class="form-actions">' +
+                '<button type="button" class="btn-mini" id="ab-chooseimg">Choose Image</button>' +
+                '<label class="btn-mini" style="cursor:pointer">Upload Image<input type="file" accept="image/*" id="ab-pup" hidden /></label>' +
+              "</div></div>";
+          bindThumbRemove($("#ab-pimg"), function () { return [profileImage]; }, function () { profileImage = ""; renderMedia(); });
+          $("#ab-chooseimg").addEventListener("click", function () {
+            openPicker(false, function (urls) { profileImage = urls[0] || ""; renderMedia(); });
+          });
+          $("#ab-pup").addEventListener("change", function () {
+            var f = $("#ab-pup").files[0];
+            $("#ab-pup").value = "";
+            if (!f) return;
+            guard($("#ab-pup"), function () {
+              return uploadSingle(f).then(function (url) { profileImage = url; renderMedia(); });
+            }, "Uploading…");
+          });
+        }
+      }
+      $$('input[name="ab-media"]').forEach(function (rd) { rd.addEventListener("change", renderMedia); });
+      renderMedia();
 
-      /* about video thumbnail */
-      var vThumbs = a.videoThumbnail ? [a.videoThumbnail] : [];
-      var vThumbRoot = $("#ab-vthumb");
-      function rVThumbs() { vThumbRoot.innerHTML = thumbsHTML(vThumbs); bindThumbRemove(vThumbRoot, function () { return vThumbs; }, rVThumbs); }
-      rVThumbs();
-      $("#ab-addvthumb").addEventListener("click", function () {
-        openPicker(false, function (urls) { vThumbs = [urls[0]]; $("#ab-vposter").value = urls[0]; rVThumbs(); });
-      });
-      $("#ab-vposter").addEventListener("input", function () {
-        var v = $("#ab-vposter").value.trim();
-        vThumbs = v ? [v] : [];
-        rVThumbs();
+      /* ---- Resume ---- */
+      function renderRes() {
+        $("#ab-res").innerHTML = res
+          ? '<div class="meta-list">' +
+              "<div>Current Resume: <b>" + esc(res.filename || res.url) + "</b></div>" +
+              '<div class="form-actions" style="margin-top:10px;margin-bottom:0">' +
+                '<a class="btn-mini" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(res.url) + '">View</a>' +
+                '<label class="btn-mini" style="cursor:pointer">Replace<input type="file" accept="application/pdf,.pdf" id="ab-resfile" hidden /></label>' +
+                '<button type="button" class="btn-danger" id="ab-resrem">Remove</button>' +
+              "</div></div>"
+          : '<p class="hint">No resume yet — upload a PDF below or paste an external URL.</p>';
+        if (!res) return;
+        $("#ab-resfile").addEventListener("change", function () {
+          var f = $("#ab-resfile").files[0];
+          $("#ab-resfile").value = "";
+          if (!f) return;
+          if (!/\.pdf$/i.test(f.name)) return toast("Only PDF files are allowed.", true);
+          if (f.size > 10 * 1024 * 1024) return toast("PDF too large (max 10MB).", true);
+          guard($("#ab-resfile"), function () {
+            return fileToDataURL(f).then(function (data) {
+              return api("/api/admin/resume", "POST", { filename: f.name, data: data });
+            }).then(function (nr) {
+              res = nr;
+              $("#ab-resurl").value = "";
+              toast("✓ Resume updated");
+              renderRes();
+            });
+          }, "Uploading…");
+        });
+        $("#ab-resrem").addEventListener("click", function () {
+          if (!confirm("Remove the active resume from the website?")) return;
+          guard($("#ab-resrem"), function () {
+            return api("/api/admin/resume", "DELETE").then(function () {
+              res = null;
+              toast("Resume removed");
+              renderRes();
+            });
+          }, "Removing…");
+        });
+      }
+      renderRes();
+      $("#ab-resurl").addEventListener("change", function () {
+        var v = $("#ab-resurl").value.trim();
+        $("#ab-resurl").value = v;
+        if (!v) return;
+        if (!/^https?:\/\//i.test(v)) return toast("Resume URL must start with http(s)://", true);
+        api("/api/admin/resume/url", "PUT", { url: v }).then(function (nr) {
+          res = nr;
+          toast("✓ Resume URL saved");
+          renderRes();
+        }, function (err) { toast(err.message, true); });
       });
 
-      /* save all */
+      /* ---- Save ---- */
       $("#ab-save").addEventListener("click", function () {
         guard($("#ab-save"), function () {
-          var p2 = paras.map(function (_, i) { return $('[data-pi="' + i + '"]').value.trim(); }).filter(Boolean);
-          var l2 = life.map(function (_, i) {
-            return { title: $('[data-li-t="' + i + '"]').value, text: $('[data-li-x="' + i + '"]').value };
-          });
-          var e2 = edu.map(function (_, i) {
-            var rt = $('[data-ed-rt="' + i + '"]').value.trim();
-            var resultVal = $('[data-ed-r="' + i + '"]').value.trim();
-            var scale = $('[data-ed-sc="' + i + '"]').value.trim();
-            var currentStudying = $('[data-ed-st="' + i + '"]').value === "Currently Studying";
-            var e = {
-              level: $('[data-ed-level="' + i + '"]').value,
-              degree: $('[data-ed-d="' + i + '"]').value,
-              institution: $('[data-ed-i="' + i + '"]').value,
-              department: $('[data-ed-dep="' + i + '"]').value,
-              subject: $('[data-ed-sub="' + i + '"]').value,
-              years: $('[data-ed-y="' + i + '"]').value.trim(),
-              location: $('[data-ed-loc="' + i + '"]').value.trim(),
-              status: currentStudying ? "Currently Pursuing" : "Completed",
-              currentStudying: currentStudying,
-              description: $('[data-ed-desc="' + i + '"]').value.trim(),
-              website: $('[data-ed-site="' + i + '"]').value.trim(),
-              showResult: $('[data-ed-show="' + i + '"]').checked
-            };
-            if (rt) {
-              e.resultType = rt.toLowerCase().indexOf("cgpa") !== -1 ? "cgpa" : "gpa";
-              e[e.resultType] = resultVal;
-              e.result = resultVal;
-              e.scale = scale;
-              e.resultScale = scale;
-            }
-            return e;
-          }).filter(function (x) { return x.degree || x.institution; });
-          var c2 = certs.map(function (_, i) {
-            return { name: $('[data-ct-n="' + i + '"]').value, code: $('[data-ct-c="' + i + '"]').value, type: $('[data-ct-t="' + i + '"]').value };
-          }).filter(function (x) { return x.name; });
+          var useVideo = $("#ab-media-vid").checked;
           return api("/api/admin/about", "PUT", {
-            name: $("#ab-name").value, title: $("#ab-title").value,
-            headline: $("#ab-headline").value,
-            shortDescription: $("#ab-shortdesc").value,
+            name: $("#ab-name").value,
+            title: $("#ab-title").value,
+            shortDescription: $("#ab-desc").value,
             description: $("#ab-desc").value,
-            detailedDescription: $("#ab-desc").value,
-            careerSummary: $("#ab-career").value,
             location: $("#ab-location").value,
-            availability: $("#ab-avail").value,
-            yearsOfExperience: $("#ab-expyrs").value,
-            experienceSummary: $("#ab-expsum").value,
-            profileImage: pImgs[0] || "",
-            videoEnabled: $("#ab-videoen").checked,
-            videoUrl: $("#ab-vurl").value.trim(),
-            videoTitle: $("#ab-vtitle").value,
-            videoDescription: $("#ab-vdesc").value,
-            videoThumbnail: $("#ab-vposter").value.trim(),
-            intro: p2, belief: $("#ab-belief").value, focus: $("#ab-focus").value,
-            lifeTitle: $("#ab-lifetitle").value, lifeItems: l2,
-            education: e2, certifications: c2, images: aImgs
-          }).then(function () { toast("✓ About section saved successfully"); });
+            profileImage: profileImage,
+            profileVideo: profileVideo,
+            profileMediaType: useVideo ? "video" : "image"
+          }).then(function () { toast("✓ About section saved"); });
         });
       });
     });

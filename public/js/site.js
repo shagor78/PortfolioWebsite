@@ -177,62 +177,35 @@
   }
 
   function aboutSection() {
-    var a = C.about;
-    var paras = (a.intro || []).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("");
-    var focus = (a.focus || "")
-      ? '<div class="about-focus">' + a.focus.split("•").map(function (f) { return f.trim(); }).filter(Boolean).map(function (f) { return "<span>" + esc(f) + "</span>"; }).join("") + "</div>"
+    var a = C.about || {};
+    var name = a.name || (C.home && (C.home.name || ""));
+    var role = a.title || (C.home && (C.home.title || ""));
+    var desc = a.shortDescription || a.description || (a.intro && a.intro.join("\n\n")) || a.headline || "";
+    var useVideo = a.profileMediaType === "video" && !!(a.profileVideo);
+    var media = "";
+    if (useVideo) {
+      media = '<figure class="about-media" data-reveal><video src="' + esc(a.profileVideo) + '" controls playsinline preload="metadata"></video></figure>';
+    } else if (a.profileImage) {
+      media = '<figure class="about-media" data-reveal><img src="' + esc(a.profileImage) + '" alt="' + esc(name || "Profile photo") + '" loading="lazy" /></figure>';
+    }
+    var resBtn = C.resume
+      ? '<a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="' + esc(C.resume.url) + '">View Resume</a>'
       : "";
-    var imgs = (a.images || []).map(function (u) { return '<img src="' + esc(u) + '" alt="About photo" loading="lazy" />'; }).join("");
-    var life = "";
-    if ((a.lifeItems || []).length) {
-      life = '<div class="life-section" data-reveal><h3 class="life-title">' + esc(a.lifeTitle || "When I'm Not Working") + "</h3>" +
-        '<div class="interest-grid">' + a.lifeItems.map(function (it) {
-          return '<article class="interest-card glass"><svg class="ic"><use href="#i-camera"/></svg><h4>' + esc(it.title || "") + "</h4><p>" + esc(it.text || "") + "</p></article>";
-        }).join("") + "</div></div>";
-    }
-    var profile = "";
-    if (a.profileImage) {
-      var apFacts = "";
-      if (a.location) apFacts += '<li><svg class="ic"><use href="#i-pin"/></svg><span>' + esc(a.location) + "</span></li>";
-      if (a.availability) apFacts += '<li><svg class="ic"><use href="#i-check"/></svg><span>' + esc(a.availability) + "</span></li>";
-      if (a.yearsOfExperience) apFacts += '<li><svg class="ic"><use href="#i-briefcase"/></svg><span>' + esc(a.yearsOfExperience) + " of experience</span></li>";
-      profile = '<div class="about-profile" data-reveal>' +
-        '<img class="about-profile-img" src="' + esc(a.profileImage) + '" alt="' + esc(a.name || "Profile") + '" loading="lazy" />' +
-        '<div class="about-profile-meta">' +
-          (a.name ? '<h3>' + esc(a.name) + "</h3>" : "") +
-          (a.title ? '<p class="ap-role">' + esc(a.title) + "</p>" : "") +
-          (apFacts ? '<ul class="about-profile-facts">' + apFacts + "</ul>" : "") +
-        "</div></div>";
-    }
-    var extra = "";
-    if (a.headline) extra += '<p class="about-lead">' + esc(a.headline) + "</p>";
-    if (a.shortDescription) extra += "<p>" + esc(a.shortDescription) + "</p>";
-    if (a.detailedDescription || a.description) extra += '<p class="about-more">' + esc(a.detailedDescription || a.description) + "</p>";
-    if (a.careerSummary) extra += '<p class="about-more">' + esc(a.careerSummary) + "</p>";
-    var expLine = a.experienceSummary ? '<p class="about-experience">' + esc(a.experienceSummary) + "</p>" : "";
-    var video = "";
-    if (a.videoEnabled && a.videoUrl) {
-      video = '<div class="about-video" data-reveal>' +
-        '<div class="av-frame">' + (isYouTube(a.videoUrl)
-          ? '<iframe src="' + esc(youtubeEmbed(a.videoUrl)) + '" title="' + esc(a.videoTitle || "Introduction video") + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'
-          : '<video src="' + esc(a.videoUrl) + '" controls playsinline' +
-            (a.videoThumbnail ? ' poster="' + esc(a.videoThumbnail) + '"' : "") + '></video>') +
-        "</div>" +
-        (a.videoTitle ? '<h3 class="av-title">' + esc(a.videoTitle) + "</h3>" : "") +
-        (a.videoDescription ? '<p class="av-desc">' + esc(a.videoDescription) + "</p>" : "") +
-      "</div>";
-    }
+    var story =
+      '<p class="eyebrow">About Me</p>' +
+      (name ? '<h2 class="about-name">' + esc(name) + "</h2>" : "") +
+      (role ? '<p class="about-role">' + esc(role) + "</p>" : "") +
+      (desc ? '<div class="about-desc">' + desc.split(/\n+/).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("") + "</div>" : "") +
+      (a.location ? '<p class="about-loc"><svg class="ic"><use href="#i-pin"/></svg><span>' + esc(a.location) + "</span></p>" : "") +
+      (resBtn ? '<div class="about-actions">' + resBtn + "</div>" : "");
     return (
       '<section id="about" class="section"><div class="container">' +
-        '<div class="about-grid">' +
-          '<div class="about-side" data-reveal>' +
-            '<p class="eyebrow">About Me</p><h2 class="section-title">More Than Just<br /><span class="grad-text">an Engineer</span></h2>' + focus + profile +
-            (imgs ? '<div class="about-images">' + imgs + "</div>" : "") +
-          "</div>" +
-          '<div class="about-story" data-reveal data-delay="120">' + extra + paras +
-            (a.belief ? '<p class="about-belief">' + esc(a.belief) + "</p>" : "") + expLine + life +
-          "</div>" +
-        "</div>" + video +
+        (media
+          ? '<div class="about-grid">' +
+              '<div class="about-side" data-reveal>' + media + "</div>" +
+              '<div class="about-story" data-reveal data-delay="120">' + story + "</div>" +
+            "</div>"
+          : '<div class="about-story about-story-single" data-reveal>' + story + "</div>") +
       "</div></section>"
     );
   }

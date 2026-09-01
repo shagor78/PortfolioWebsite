@@ -108,6 +108,10 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
 .check-row { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 0.9rem; cursor: pointer; user-select: none; }
 .check-row input { width: 17px; height: 17px; accent-color: var(--accent); }
 .hint { color: var(--muted); font-size: 0.8rem; margin-top: 5px; }
+.ab-type-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ab-type { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-size: 0.86rem; font-weight: 600; color: var(--muted); background: var(--card); }
+.ab-type:has(input:checked) { border-color: var(--accent); color: var(--accent); background: #f0f9ff; }
+.ab-type input { accent-color: var(--accent); }
 .form-actions { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 .form-error { display: none; color: var(--red); background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 0.86rem; font-weight: 600; margin-bottom: 14px; }
 .form-error.show { display: block; }
