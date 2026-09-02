@@ -182,14 +182,6 @@
     var role = a.title || (C.home && (C.home.title || ""));
     var desc = a.shortDescription || a.description || (a.intro && a.intro.join("\n\n")) || a.headline || "";
     var useVideo = a.profileMediaType === "video" && !!(a.profileVideo);
-    var media = "";
-    if (useVideo) {
-      media = '<figure class="about-media" data-reveal>' + (isYouTube(a.profileVideo)
-        ? '<div class="about-media-frame"><iframe src="' + esc(youtubeEmbed(a.profileVideo)) + '" title="About video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>'
-        : '<video src="' + esc(a.profileVideo) + '" controls playsinline preload="metadata"></video>') + "</figure>";
-    } else if (a.profileImage) {
-      media = '<figure class="about-media" data-reveal><img src="' + esc(a.profileImage) + '" alt="' + esc(name || "Profile photo") + '" loading="lazy" /></figure>';
-    }
     var resBtn = C.resume
       ? '<a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="' + esc(C.resume.url) + '">View Resume</a>'
       : "";
@@ -200,14 +192,21 @@
       (desc ? '<div class="about-desc">' + desc.split(/\n+/).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("") + "</div>" : "") +
       (a.location ? '<p class="about-loc"><svg class="ic"><use href="#i-pin"/></svg><span>' + esc(a.location) + "</span></p>" : "") +
       (resBtn ? '<div class="about-actions">' + resBtn + "</div>" : "");
+    if (!useVideo && !a.profileImage) {
+      return '<section id="about" class="section"><div class="container">' +
+        '<div class="about-card about-card--single"><div class="about-story" data-reveal>' + story + "</div></div>" +
+        "</div></section>";
+    }
     return (
       '<section id="about" class="section"><div class="container">' +
-        (media
-          ? '<div class="about-grid">' +
-              '<div class="about-side" data-reveal>' + media + "</div>" +
-              '<div class="about-story" data-reveal data-delay="120">' + story + "</div>" +
-            "</div>"
-          : '<div class="about-story about-story-single" data-reveal>' + story + "</div>") +
+        '<div class="about-card" data-reveal>' +
+          '<div class="about-media"><figure class="about-media-fig">' + (useVideo
+            ? isYouTube(a.profileVideo)
+              ? '<div class="about-media-frame"><iframe src="' + esc(youtubeEmbed(a.profileVideo)) + '" title="About video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>'
+              : '<video src="' + esc(a.profileVideo) + '" controls playsinline preload="metadata"></video>'
+            : '<img src="' + esc(a.profileImage) + '" alt="' + esc(name || "Profile photo") + '" loading="lazy" />') + "</figure></div>" +
+          '<div class="about-story" data-reveal data-delay="120">' + story + "</div>" +
+        "</div>" +
       "</div></section>"
     );
   }
@@ -693,8 +692,11 @@
      section is switched off in C.sections.enabled (preserves legacy behaviour
      without hard-coding the whole menu).                                 */
 
+  var SECTION_KEYS = ["hero", "experience", "projects", "about", "education", "certifications", "skills", "blog", "contact"];
+
   function navHref(n) {
     if (n && n.url) return n.url;
+    if (n && n.key && SECTION_KEYS.indexOf(n.key) !== -1) return "#" + n.key;
     return "#/" + (n && n.key ? n.key : "");
   }
   function navExternal(href) {
@@ -778,7 +780,7 @@
     var app = el("app");
     var order = (C.sections && C.sections.order) || ["hero", "experience", "projects", "about", "education", "certifications", "skills", "contact"];
     var enabled = (C.sections && C.sections.enabled) || {};
-    var homeOrder = (C.sections && C.sections.homeOrder) || [].concat(order).filter(function (k) { return k !== "blog"; });
+    var homeOrder = (C.sections && C.sections.homeOrder) || [].concat(order);
     var projId = currentProjectId();
     var mode = currentMode();
     var project = null;
@@ -877,7 +879,7 @@
     var pos = window.scrollY + window.innerHeight * 0.35;
     var keys = ["home"];
     navEntries().forEach(function (n) {
-      var m = navHref(n).match(/^#\/([a-zA-Z]+)/);
+      var m = (navHref(n) || "").match(/^#(?:\/)?([a-zA-Z]+)/);
       if (m) keys.push(m[1]);
     });
     var seen = {};

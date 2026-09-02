@@ -1,13 +1,19 @@
 {
   "name": "shagor-portfolio",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Portfolio website with built-in admin panel (CMS). Zero dependencies.",
+  "description": "Portfolio website with built-in admin panel (CMS). Persistent storage.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "migrate": "node migrate.js"
   },
   "engines": {
     "node": ">=16"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "cloudinary": "^2.5.0",
+    "dotenv": "^16.4.5"
   }
 }

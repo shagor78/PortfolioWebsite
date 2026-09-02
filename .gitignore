@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Secret / environment config
+.env
+.env.local
+
+# Runtime data (local fallback storage only —
+# production persistence uses PostgreSQL + Cloudinary)
+data/
+image/
+uploads/
+*.log
+server-test.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

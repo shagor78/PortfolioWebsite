@@ -373,8 +373,7 @@
 
   function uploadFiles(files) {
     files = Array.prototype.slice.call(files || [])
-      .filter(function (f) { return /^image\//.test(f.type); })
-      .slice(0, 12);
+      .filter(function (f) { return /^image\//.test(f.type); });
     if (!files.length) {
       return Promise.reject(new Error("No valid images selected (JPG, PNG, WEBP, GIF, SVG)."));
     }
@@ -547,7 +546,7 @@
           '<div class="card"><h3>Recent Blog Posts <a href="#/blog" style="font-size:0.8rem;font-weight:600;text-decoration:none">All posts →</a></h3>' +
             (posts.length
               ? '<div class="table-wrap" style="box-shadow:none"><table class="tbl" style="min-width:0"><tbody>' +
-                posts.slice(0, 5).map(function (p) {
+                posts.map(function (p) {
                   return "<tr><td><div class='t-title'>" + esc(p.title || "Untitled") + "</div><div class='t-sub'>" + esc(fmtDate(p.date)) + "</div></td>" +
                     '<td><span class="badge ' + (p.status === "published" ? "pub" : "draft") + '"><i></i>' + (p.status === "published" ? "Published" : "Draft") + "</span></td>" +
                     '<td style="text-align:right"><a class="btn-mini" style="text-decoration:none" href="#/blogedit/' + p.id + '">Edit</a></td></tr>';
@@ -556,7 +555,7 @@
           "</div>" +
           '<div class="card"><h3>Recent Activity</h3>' +
             (activity.length
-              ? '<ul class="activity-list">' + activity.slice(0, 8).map(function (a) {
+              ? '<ul class="activity-list">' + activity.map(function (a) {
                   return '<li><span class="act-dot"></span><span>' + esc(a.text) + '</span><span class="act-date">' + esc(fmtDateTime(a.date)) + "</span></li>";
                 }).join("") + "</ul>"
               : '<p class="empty-note">Activity will appear here as you work.</p>') +
@@ -696,7 +695,7 @@
                 '<input type="file" accept="video/*" hidden /></label>' +
               '<p class="hint" id="ab-vstatus">' + (profileVideo ? "" : "Drop a video file or paste a Video URL below.") + "</p>" +
               field("Video URL (optional, direct video or YouTube)", 'id="ab-vurl"',
-                /^https?:/i.test(profileVideo) && !/^\/uploads\//.test(profileVideo) ? profileVideo : "") +
+                /^https?:/i.test(profileVideo) && !/^\/image\//.test(profileVideo) ? profileVideo : "") +
               '<div id="ab-vprev" style="margin-top:10px">' + (profileVideo
                 ? '<video src="' + esc(profileVideo) + '" controls playsinline style="width:100%;aspect-ratio:16/9;border-radius:10px;background:#000;display:block"></video>'
                 : "") + "</div>" +
@@ -1153,7 +1152,7 @@
 
           '<div class="card" style="margin-top:18px"><h3>Demo Video &amp; Overlay</h3>' +
             '<label style="display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted);cursor:pointer;margin-bottom:10px"><input type="checkbox" class="pj-videoenabled" ' + (p.videoEnabled ? " checked" : "") + " /> Show this video on the case-study page</label>" +
-            '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4, /uploads/…, or a YouTube link" />' +
+            '<div class="field"><label>Video URL</label><input type="text" class="pj-vurl" value="' + esc(p.videoUrl || p.video || "") + '" placeholder="https://…/video.mp4, /image/…, or a YouTube link" />' +
             '<label class="upload-zone pj-zone" style="margin-top:10px">' +
               '<input type="file" accept="video/*" class="pj-vfile" hidden />' +
               '<span class="uz-main">＋ Drag &amp; drop video here</span>' +
@@ -1704,8 +1703,9 @@
       var arr = Array.prototype.slice.call(files);
       if (!arr.length) return Promise.resolve();
       if (tab === "video") {
-        if (arr.length > 1) return Promise.reject(new Error("Upload one video at a time."));
-        return uploadVideo(arr[0]).then(function () { toast("✓ Video uploaded successfully"); }).then(loadMediaGrid, function (err) { toast(err.message, true); });
+        return Promise.all(arr.map(uploadVideo)).then(function () {
+          toast("✓ Uploaded " + arr.length + " video" + (arr.length === 1 ? "" : "s") + " successfully");
+        }).then(loadMediaGrid, function (err) { toast(err.message, true); });
       }
       return uploadFiles(arr).then(loadMediaGrid, function (err) { toast(err.message, true); });
     }
@@ -2235,7 +2235,7 @@
           '<label class="btn-primary" id="res-upload-label" style="cursor:pointer;display:inline-flex">⬆ Upload PDF<input type="file" id="res-file" accept="application/pdf,.pdf" hidden /></label>' +
           '<span id="res-actions" class="hidden" style="display:inline-flex;gap:10px">' +
             '<button type="button" class="btn-ghost" id="res-preview">👁 Preview</button>' +
-            '<a class="btn-ghost" id="res-download" href="/uploads/resume.pdf" download>⬇ Download</a>' +
+            '<a class="btn-ghost" id="res-download" href="/image/resume.pdf" download>⬇ Download</a>' +
             '<button type="button" class="btn-danger" id="res-remove">✕ Remove</button>' +
           "</span>" +
         "</div></div>" +
@@ -2256,7 +2256,7 @@
       $("#res-state").innerHTML = r
         ? '<div class="meta-list"><div>Active file: <b>' + esc(r.filename) + "</b></div>" +
           "<div>Uploaded: <b>" + fmtDateTime(r.uploadedAt) + "</b></div>" +
-          '<div>Served at: <code>/uploads/resume.pdf</code></div></div>'
+          '<div>Served at: <code>/image/resume.pdf</code></div></div>'
         : '<p class="hint">No resume uploaded yet. Upload a PDF to show a “Download Resume” button on the website.</p>';
       $("#res-actions").classList.toggle("hidden", !r);
     }
@@ -2276,7 +2276,7 @@
       }, "Uploading…");
     });
     $("#res-preview").addEventListener("click", function () {
-      window.open("/uploads/resume.pdf?v=" + Date.now(), "_blank");
+      window.open("/image/resume.pdf?v=" + Date.now(), "_blank");
     });
     $("#res-remove").addEventListener("click", function () {
       if (!confirm("Remove the active resume from the website?")) return;
